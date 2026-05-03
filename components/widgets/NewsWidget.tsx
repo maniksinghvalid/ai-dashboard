@@ -39,15 +39,21 @@ export function NewsWidget({
   items,
   stale,
   isLoading,
+  error,
 }: {
   items: NewsItem[] | null;
   stale: boolean;
   isLoading: boolean;
+  error: Error | null;
 }) {
   return (
     <WidgetCard title="News" stale={stale}>
       {isLoading ? (
         <WidgetSkeleton lines={5} />
+      ) : error ? (
+        <p className="py-6 text-center text-sm text-gray-500">
+          Failed to load — retrying...
+        </p>
       ) : !items || items.length === 0 ? (
         <p className="py-6 text-center text-sm text-gray-500">
           No news available

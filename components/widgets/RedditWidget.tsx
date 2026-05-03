@@ -55,15 +55,21 @@ export function RedditWidget({
   posts,
   stale,
   isLoading,
+  error,
 }: {
   posts: RedditPost[] | null;
   stale: boolean;
   isLoading: boolean;
+  error: Error | null;
 }) {
   return (
     <WidgetCard title="Reddit" stale={stale}>
       {isLoading ? (
         <WidgetSkeleton lines={5} />
+      ) : error ? (
+        <p className="py-6 text-center text-sm text-gray-500">
+          Failed to load — retrying...
+        </p>
       ) : !posts || posts.length === 0 ? (
         <p className="py-6 text-center text-sm text-gray-500">
           No posts available

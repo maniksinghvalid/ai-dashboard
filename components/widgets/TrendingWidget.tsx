@@ -52,10 +52,12 @@ export function TrendingWidget({
   topics,
   stale,
   isLoading,
+  error,
 }: {
   topics: TrendingTopic[] | null;
   stale: boolean;
   isLoading: boolean;
+  error: Error | null;
 }) {
   const maxMentions = topics?.[0]?.mentionCount ?? 0;
 
@@ -63,6 +65,10 @@ export function TrendingWidget({
     <WidgetCard title="Trending Topics" stale={stale}>
       {isLoading ? (
         <WidgetSkeleton lines={5} />
+      ) : error ? (
+        <p className="py-6 text-center text-sm text-gray-500">
+          Failed to load — retrying...
+        </p>
       ) : !topics || topics.length === 0 ? (
         <p className="py-6 text-center text-sm text-gray-500">
           No trending topics

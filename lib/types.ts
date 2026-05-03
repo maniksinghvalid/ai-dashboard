@@ -49,12 +49,7 @@ export interface TrendingTopic {
   score: number;
 }
 
-export interface HeroStory {
-  topic: string;
-  mentionCount: number;
-  velocity: number;
-  sources: string[];
-  score: number;
+export interface HeroStory extends TrendingTopic {
   headline: string;
   thumbnailUrl: string | null;
   link: string | null;

@@ -11,15 +11,18 @@ function formatCount(count: number): string {
 
 function AuthorAvatar({ name }: { name: string }) {
   const initials = name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+    ? name
+        .split(" ")
+        .filter(Boolean)
+        .map((w) => w[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : "?";
 
   return (
     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-light text-xs font-bold text-gray-400">
-      {initials}
+      {initials || "?"}
     </div>
   );
 }
@@ -90,15 +93,21 @@ export function XFeedWidget({
   tweets,
   stale,
   isLoading,
+  error,
 }: {
   tweets: Tweet[] | null;
   stale: boolean;
   isLoading: boolean;
+  error: Error | null;
 }) {
   return (
     <WidgetCard title="X / Twitter" stale={stale}>
       {isLoading ? (
         <WidgetSkeleton lines={4} />
+      ) : error ? (
+        <p className="py-6 text-center text-sm text-gray-500">
+          Failed to load — retrying...
+        </p>
       ) : !tweets || tweets.length === 0 ? (
         <p className="py-6 text-center text-sm text-gray-500">
           No tweets available

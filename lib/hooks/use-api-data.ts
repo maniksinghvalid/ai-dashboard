@@ -5,10 +5,16 @@ import type { ApiResponse } from "@/lib/types";
 
 const fetcher = async <T>(url: string): Promise<ApiResponse<T>> => {
   const res = await fetch(url);
-  if (!res.ok && res.status !== 503) {
-    throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(`API error: ${res.status}`);
+    (err as Error & { status: number }).status = res.status;
+    throw err;
   }
-  return res.json();
+  const json = await res.json();
+  if (!json || typeof json !== "object" || !("data" in json)) {
+    throw new Error("Invalid API response shape");
+  }
+  return json as ApiResponse<T>;
 };
 
 export function useApiData<T>(endpoint: string, refreshInterval = 60_000) {
@@ -19,6 +25,7 @@ export function useApiData<T>(endpoint: string, refreshInterval = 60_000) {
       refreshInterval,
       revalidateOnFocus: false,
       dedupingInterval: 10_000,
+      errorRetryCount: 3,
     },
   );
 

@@ -7,11 +7,13 @@ export function LiveTicker({ topics }: { topics: TrendingTopic[] | null }) {
   const tickerContent = [...items, ...items];
 
   return (
-    <div
-      className="overflow-hidden border-b border-white/5 bg-surface-dark py-2"
-      aria-live="polite"
-    >
+    <div className="overflow-hidden border-b border-white/5 bg-surface-dark py-2">
+      {/* Accessible static summary for screen readers */}
+      <p className="sr-only">
+        Trending: {items.map((t) => t.topic).join(", ")}
+      </p>
       <div
+        aria-hidden="true"
         className="animate-ticker-scroll flex whitespace-nowrap motion-reduce:animate-none motion-reduce:flex-wrap motion-reduce:gap-4"
         style={{ willChange: "transform" }}
       >
@@ -25,7 +27,7 @@ export function LiveTicker({ topics }: { topics: TrendingTopic[] | null }) {
               {topic.mentionCount} mentions
             </span>
             <span className="text-green-400 font-[family-name:var(--font-space-mono)]">
-              +{topic.velocity.toFixed(1)}/hr
+              +{(topic.velocity ?? 0).toFixed(1)}/hr
             </span>
           </span>
         ))}

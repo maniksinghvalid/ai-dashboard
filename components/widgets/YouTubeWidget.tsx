@@ -70,15 +70,21 @@ export function YouTubeWidget({
   videos,
   stale,
   isLoading,
+  error,
 }: {
   videos: Video[] | null;
   stale: boolean;
   isLoading: boolean;
+  error: Error | null;
 }) {
   return (
     <WidgetCard title="YouTube" stale={stale}>
       {isLoading ? (
         <WidgetSkeleton lines={4} />
+      ) : error ? (
+        <p className="py-6 text-center text-sm text-gray-500">
+          Failed to load — retrying...
+        </p>
       ) : !videos || videos.length === 0 ? (
         <p className="py-6 text-center text-sm text-gray-500">
           No videos available

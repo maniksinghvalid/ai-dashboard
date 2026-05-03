@@ -1,6 +1,10 @@
+"use client";
+
 function getRelativeTime(dateString: string): string {
-  const now = Date.now();
   const then = new Date(dateString).getTime();
+  if (isNaN(then)) return "";
+
+  const now = Date.now();
   const diffMs = now - then;
 
   const minutes = Math.floor(diffMs / 60_000);
@@ -29,6 +33,7 @@ export function RelativeTime({
   return (
     <time
       dateTime={date}
+      suppressHydrationWarning
       className={`text-xs text-gray-500 font-[family-name:var(--font-space-mono)] ${className}`}
     >
       {getRelativeTime(date)}
