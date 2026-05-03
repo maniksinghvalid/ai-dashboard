@@ -4,13 +4,18 @@ import { YOUTUBE_CHANNELS, CACHE_KEYS } from "@/lib/constants";
 import { cacheSet } from "@/lib/cache/helpers";
 
 export async function fetchYouTubeVideos(): Promise<Video[]> {
+  if (!process.env.YOUTUBE_API_KEY) {
+    console.warn("[youtube] YOUTUBE_API_KEY not set, skipping fetch");
+    return [];
+  }
+
   const youtube = google.youtube({
     version: "v3",
     auth: process.env.YOUTUBE_API_KEY,
   });
 
-  // Fetch latest uploads from each channel
-  const playlistResponses = await Promise.all(
+  // Fetch latest uploads from each channel (allSettled so one bad channel doesn't fail all)
+  const playlistResults = await Promise.allSettled(
     YOUTUBE_CHANNELS.map((channel) =>
       youtube.playlistItems.list({
         playlistId: channel.uploadsPlaylistId,
@@ -20,10 +25,11 @@ export async function fetchYouTubeVideos(): Promise<Video[]> {
     )
   );
 
-  // Collect all video IDs
+  // Collect all video IDs from successful responses
   const videoIds: string[] = [];
-  for (const response of playlistResponses) {
-    const items = response.data.items ?? [];
+  for (const result of playlistResults) {
+    if (result.status !== "fulfilled") continue;
+    const items = result.value.data.items ?? [];
     for (const item of items) {
       const videoId = item.snippet?.resourceId?.videoId;
       if (videoId) {
@@ -33,7 +39,6 @@ export async function fetchYouTubeVideos(): Promise<Video[]> {
   }
 
   if (videoIds.length === 0) {
-    await cacheSet(CACHE_KEYS.youtube, []);
     return [];
   }
 

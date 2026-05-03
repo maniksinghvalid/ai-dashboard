@@ -64,9 +64,12 @@ export function calculateTrending(
     return [];
   }
 
-  const timestamps = items.map((i) => i.timestamp);
-  const minTs = Math.min(...timestamps);
-  const maxTs = Math.max(...timestamps);
+  let minTs = Infinity;
+  let maxTs = -Infinity;
+  for (const item of items) {
+    if (item.timestamp < minTs) minTs = item.timestamp;
+    if (item.timestamp > maxTs) maxTs = item.timestamp;
+  }
   const timeSpanHours = Math.max((maxTs - minTs) / (1000 * 60 * 60), 1);
 
   const results: TrendingTopic[] = [];

@@ -21,7 +21,8 @@ export const TWITTER_USERS = [
   { handle: "sama", userId: "3108351" },
   { handle: "ylecun", userId: "50705664" },
   { handle: "karpathy", userId: "33836629" },
-  { handle: "DarioAmodei", userId: "1366aborede4" },
+  // TODO: Look up correct numeric user ID for @DarioAmodei via https://tweeterid.com
+  // { handle: "DarioAmodei", userId: "REPLACE_ME" },
   { handle: "fchollet", userId: "485117960" },
   { handle: "AnthropicAI", userId: "1450081635559428100" },
   { handle: "OpenAI", userId: "1511943437373345793" },

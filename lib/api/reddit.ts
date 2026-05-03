@@ -32,7 +32,7 @@ function normalizeApifyPost(item: Record<string, any>): RedditPost {
     ),
     flair: item.flair ?? item.flairText ?? null,
     url: String(item.url ?? item.link ?? ""),
-    createdAt: String(item.createdAt ?? item.scrapedAt ?? ""),
+    createdAt: String(item.createdAt ?? item.scrapedAt ?? new Date().toISOString()),
   };
 }
 
@@ -56,6 +56,11 @@ function isFlairAllowed(post: RedditPost): boolean {
  * filter by flair allowlist, cache, and return.
  */
 export async function fetchRedditPosts(): Promise<RedditPost[]> {
+  if (!process.env.APIFY_API_TOKEN) {
+    console.warn("[reddit] APIFY_API_TOKEN not set, skipping fetch");
+    return [];
+  }
+
   const client = new ApifyClient({ token: process.env.APIFY_API_TOKEN });
 
   const run = await client.actor(APIFY_ACTOR_ID).call(

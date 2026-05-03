@@ -63,17 +63,19 @@ export async function fetchTweets(): Promise<Tweet[]> {
         }
       }
 
-      const tweets: Tweet[] = json.data.map((tweet) => ({
-        id: tweet.id,
-        text: tweet.text,
-        authorName:
-          (tweet.author_id && usersMap.get(tweet.author_id)) ?? user.handle,
-        authorHandle: user.handle,
-        createdAt: tweet.created_at,
-        likeCount: tweet.public_metrics.like_count,
-        retweetCount: tweet.public_metrics.retweet_count,
-        url: `https://x.com/${user.handle}/status/${tweet.id}`,
-      }));
+      const tweets: Tweet[] = json.data
+        .filter((tweet) => tweet.public_metrics)
+        .map((tweet) => ({
+          id: tweet.id,
+          text: tweet.text,
+          authorName:
+            (tweet.author_id && usersMap.get(tweet.author_id)) ?? user.handle,
+          authorHandle: user.handle,
+          createdAt: tweet.created_at,
+          likeCount: tweet.public_metrics.like_count,
+          retweetCount: tweet.public_metrics.retweet_count,
+          url: `https://x.com/${user.handle}/status/${tweet.id}`,
+        }));
 
       return tweets;
     })

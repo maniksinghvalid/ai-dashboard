@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Receiver } from "@upstash/qstash";
 import * as Sentry from "@sentry/nextjs";
+
+export const dynamic = "force-dynamic";
 import { fetchYouTubeVideos } from "@/lib/api/youtube";
 import { fetchRedditPosts } from "@/lib/api/reddit";
 import { fetchTweets } from "@/lib/api/twitter";
@@ -89,9 +91,15 @@ async function refreshAllFeeds() {
 
 // GET — Vercel cron (daily) + manual trigger with Bearer token
 export async function GET(request: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (!cronSecret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const authHeader = request.headers.get("authorization");
 
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -105,10 +113,7 @@ export async function POST(request: NextRequest) {
   const nextSigningKey = process.env.QSTASH_NEXT_SIGNING_KEY;
 
   if (!currentSigningKey || !nextSigningKey) {
-    return NextResponse.json(
-      { error: "QStash signing keys not configured" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const receiver = new Receiver({ currentSigningKey, nextSigningKey });

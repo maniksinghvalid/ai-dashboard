@@ -20,7 +20,16 @@ export async function cacheGet<T>(
   return { data: raw.data, fetchedAt: raw.fetchedAt, stale };
 }
 
-export async function cacheSet<T>(key: string, data: T): Promise<void> {
+export async function cacheSet<T>(
+  key: string,
+  data: T,
+  options?: { allowEmpty?: boolean },
+): Promise<void> {
+  // Don't overwrite good cached data with empty results unless explicitly allowed
+  if (Array.isArray(data) && data.length === 0 && !options?.allowEmpty) {
+    return;
+  }
+
   const redis = getRedis();
   const wrapped: CachedData<T> = {
     data,
