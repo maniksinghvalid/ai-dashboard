@@ -15,10 +15,33 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html>
-      <body>
-        <h2>Something went wrong!</h2>
-        <button onClick={() => reset()}>Try again</button>
+    <html className="dark">
+      <body style={{ background: "#0b1120", color: "#e5e7eb" }}>
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <h2>Something went wrong!</h2>
+          <button
+            onClick={() => reset()}
+            style={{
+              marginTop: "1rem",
+              padding: "0.5rem 1rem",
+              borderRadius: "0.5rem",
+              border: "1px solid #374151",
+              background: "#1e293b",
+              color: "#e5e7eb",
+              cursor: "pointer",
+            }}
+          >
+            Try again
+          </button>
+        </div>
       </body>
     </html>
   );
