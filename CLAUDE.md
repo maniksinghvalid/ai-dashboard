@@ -30,7 +30,7 @@ AIP-Dash (AI Pulse Live Dashboard) — a real-time AI industry dashboard that ag
 
 ## Environment Variables
 
-See `.env.example` for all 9 required variables: YouTube, Reddit, X/Twitter API keys, Upstash Redis credentials, CRON_SECRET, and Sentry DSN/auth token.
+See `.env.example` for all 11 variables: YouTube, Reddit, X/Twitter API keys, Upstash Redis credentials, CRON_SECRET, Sentry DSN/auth token, and optional Sentry org/project overrides.
 
 ## Deployment
 
