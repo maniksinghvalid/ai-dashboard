@@ -49,6 +49,17 @@ export interface TrendingTopic {
   score: number;
 }
 
+export interface HeroStory {
+  topic: string;
+  mentionCount: number;
+  velocity: number;
+  sources: string[];
+  score: number;
+  headline: string;
+  thumbnailUrl: string | null;
+  link: string | null;
+}
+
 export interface CachedData<T> {
   data: T;
   fetchedAt: string;
