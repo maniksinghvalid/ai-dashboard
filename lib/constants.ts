@@ -23,10 +23,10 @@ export const TWITTER_USERS = [
   { handle: "karpathy", userId: "33836629" },
   // TODO: Look up correct numeric user ID for @DarioAmodei via https://tweeterid.com
   // { handle: "DarioAmodei", userId: "REPLACE_ME" },
-  { handle: "fchollet", userId: "485117960" },
-  { handle: "AnthropicAI", userId: "1450081635559428100" },
-  { handle: "OpenAI", userId: "1511943437373345793" },
-  { handle: "GoogleDeepMind", userId: "1542437028" },
+  { handle: "fchollet", userId: "68746721" },
+  { handle: "AnthropicAI", userId: "1353836358901501952" },
+  { handle: "OpenAI", userId: "4398626122" },
+  { handle: "GoogleDeepMind", userId: "4783690002" },
 ] as const;
 
 export const RSS_FEEDS = [
