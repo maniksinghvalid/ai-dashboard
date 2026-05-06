@@ -6,7 +6,7 @@ export function SentimentWidget() {
       icon="😐"
       iconBg="var(--amber)"
       title="Community Sentiment"
-      badge="Last 24h"
+      badge="Sample data"
     >
       <div>
         <div className="mb-2 font-[family-name:var(--font-space-mono)] text-[10px] text-muted">

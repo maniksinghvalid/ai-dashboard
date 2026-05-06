@@ -1,15 +1,7 @@
 import type { NewsItem } from "@/lib/types";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { WidgetSkeleton } from "@/components/widgets/WidgetSkeleton";
-
-function formatRelativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+import { formatRelativeTime } from "@/lib/utils/format";
 
 const SOURCE_STYLES: Record<string, { bg: string; color: string; abbr: string }> = {
   "MIT Tech Review AI": { bg: "rgba(239,68,68,0.12)", color: "#ef4444", abbr: "MIT" },

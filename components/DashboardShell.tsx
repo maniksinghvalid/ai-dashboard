@@ -21,7 +21,7 @@ export function DashboardShell() {
       <Header />
       <LiveTicker topics={trending.data} />
 
-      <main className="mx-auto grid max-w-[1280px] grid-cols-1 gap-3.5 px-5 py-4 lg:grid-cols-[280px_1fr_280px]">
+      <main className="mx-auto grid max-w-[1280px] grid-cols-1 gap-3.5 px-5 py-4 lg:grid-cols-2 xl:grid-cols-[280px_1fr_280px]">
         {/* Left Column: YouTube + Reddit */}
         <div className="flex flex-col gap-3.5">
           <WidgetErrorBoundary fallbackTitle="YouTube feed unavailable">
@@ -64,7 +64,9 @@ export function DashboardShell() {
             />
           </WidgetErrorBoundary>
 
-          <SentimentWidget />
+          <WidgetErrorBoundary fallbackTitle="Sentiment unavailable">
+            <SentimentWidget />
+          </WidgetErrorBoundary>
         </div>
 
         {/* Right Column: X + News */}

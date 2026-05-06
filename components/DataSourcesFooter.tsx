@@ -3,7 +3,6 @@ const DATA_SOURCES = [
   { color: "var(--reddit)", label: "Reddit — Apify MCP", extra: "(trudax/reddit-scraper-lite)" },
   { color: "#e7e7f0", label: "X API Basic" },
   { color: "#0ea5e9", label: "RSS News Feeds" },
-  { color: "var(--accent2)", label: "HuggingFace Sentiment API" },
 ];
 
 export function DataSourcesFooter() {
