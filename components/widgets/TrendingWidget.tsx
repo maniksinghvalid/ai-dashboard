@@ -1,7 +1,6 @@
 import type { TrendingTopic } from "@/lib/types";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { WidgetSkeleton } from "@/components/widgets/WidgetSkeleton";
-import { PlatformBadge } from "@/components/ui/PlatformBadge";
 
 function TopicChip({
   topic,
@@ -16,33 +15,21 @@ function TopicChip({
     maxMentions > 0 ? (topic.mentionCount / maxMentions) * 100 : 0;
 
   return (
-    <div className="rounded-lg bg-white/5 p-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-500 font-[family-name:var(--font-space-mono)]">
-            #{rank}
-          </span>
-          <span className="text-sm font-medium text-foreground">
-            {topic.topic}
-          </span>
-        </div>
-        <span className="text-xs text-gray-500 font-[family-name:var(--font-space-mono)]">
-          {topic.mentionCount} mentions
-        </span>
+    <div className="cursor-pointer rounded-[10px] border border-[--border] bg-surface-2 px-3 py-2.5 transition-colors hover:border-accent">
+      <div className="mb-1 font-[family-name:var(--font-space-mono)] text-[9px] text-muted">
+        #{rank} TRENDING
       </div>
-      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+      <div className="mb-1.5 text-[13px] font-bold text-[--text]">
+        {topic.topic}
+      </div>
+      <div className="mb-[5px] h-[3px] rounded-sm bg-surface">
         <div
-          className="h-full rounded-full bg-accent-500 transition-all duration-500"
+          className="h-[3px] rounded-sm bg-gradient-to-r from-accent to-accent-secondary transition-all duration-500"
           style={{ width: `${barWidth}%` }}
         />
       </div>
-      <div className="mt-2 flex items-center gap-1.5">
-        {topic.sources.map((source) => (
-          <PlatformBadge key={source} platform={source} />
-        ))}
-        <span className="ml-auto text-[10px] text-gray-500 font-[family-name:var(--font-space-mono)]">
-          {topic.velocity.toFixed(1)}/hr
-        </span>
+      <div className="font-[family-name:var(--font-space-mono)] text-[10px] font-bold text-accent-secondary">
+        ↑ {topic.mentionCount.toLocaleString()} mentions
       </div>
     </div>
   );
@@ -62,20 +49,26 @@ export function TrendingWidget({
   const maxMentions = topics?.[0]?.mentionCount ?? 0;
 
   return (
-    <WidgetCard title="Trending Topics" stale={stale}>
+    <WidgetCard
+      icon="↑"
+      iconBg="linear-gradient(135deg, var(--accent), var(--accent2))"
+      title="Trending"
+      badge="Cross-platform"
+      stale={stale}
+    >
       {isLoading ? (
         <WidgetSkeleton lines={5} />
       ) : error ? (
-        <p className="py-6 text-center text-sm text-gray-500">
+        <p className="py-6 text-center text-[11px] text-muted">
           Failed to load — retrying...
         </p>
       ) : !topics || topics.length === 0 ? (
-        <p className="py-6 text-center text-sm text-gray-500">
+        <p className="py-6 text-center text-[11px] text-muted">
           No trending topics
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          {topics.slice(0, 8).map((topic, i) => (
+          {topics.slice(0, 6).map((topic, i) => (
             <TopicChip
               key={topic.topic}
               topic={topic}

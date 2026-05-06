@@ -14,6 +14,7 @@ const config: Config = {
         background: "var(--background)",
         foreground: "var(--foreground)",
         accent: {
+          DEFAULT: "#7c6eff",
           50: "#f3f0ff",
           100: "#e9e3ff",
           200: "#d4c9ff",
@@ -33,10 +34,27 @@ const config: Config = {
           x: "#e7e7f0",
         },
         surface: {
-          DEFAULT: "#111827",
-          light: "#1f2937",
+          DEFAULT: "#0d0d1f",
+          2: "#13132b",
           dark: "#060610",
         },
+        border: "var(--border)",
+        green: {
+          DEFAULT: "#22d3a5",
+          400: "#22d3a5",
+          500: "#22d3a5",
+        },
+        red: {
+          DEFAULT: "#ff5c6a",
+          400: "#ff5c6a",
+          500: "#ff5c6a",
+        },
+        amber: {
+          DEFAULT: "#ffb830",
+          400: "#ffb830",
+          500: "#ffb830",
+        },
+        muted: "#6b668a",
       },
       spacing: {
         widget: "1.5rem",
@@ -57,14 +75,14 @@ const config: Config = {
           "0%": { transform: "translateX(0)" },
           "100%": { transform: "translateX(-50%)" },
         },
-        pulse: {
+        blink: {
           "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.5" },
+          "50%": { opacity: "0.2" },
         },
       },
       animation: {
-        "ticker-scroll": "ticker-scroll 30s linear infinite",
-        "live-pulse": "pulse 2s ease-in-out infinite",
+        "ticker-scroll": "ticker-scroll 35s linear infinite",
+        "live-blink": "blink 1.4s ease-in-out infinite",
       },
     },
   },

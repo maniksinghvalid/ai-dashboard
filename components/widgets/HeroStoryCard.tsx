@@ -1,7 +1,5 @@
-import Image from "next/image";
 import type { Video, NewsItem, TrendingTopic, HeroStory } from "@/lib/types";
 import { WidgetSkeleton } from "@/components/widgets/WidgetSkeleton";
-import { PlatformBadge } from "@/components/ui/PlatformBadge";
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -44,6 +42,17 @@ function isValidUrl(url: string): boolean {
   }
 }
 
+function formatMentions(count: number): string {
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}k`;
+  return count.toString();
+}
+
+const SOURCE_CONFIG: Record<string, { color: string; label: string }> = {
+  youtube: { color: "var(--yt)", label: "YT videos" },
+  twitter: { color: "#e7e7f0", label: "posts" },
+  reddit: { color: "var(--reddit)", label: "upvotes" },
+};
+
 export function HeroStoryCard({
   topics,
   videos,
@@ -59,7 +68,7 @@ export function HeroStoryCard({
 }) {
   if (isLoading) {
     return (
-      <div className="rounded-widget border border-accent-500/30 bg-gradient-to-br from-accent-950/50 to-surface p-widget-lg">
+      <div className="rounded-[14px] border border-[rgba(124,110,255,0.2)] bg-gradient-to-br from-[#0f0f26] via-[#1a1040] to-[#0f1a26] p-5">
         <WidgetSkeleton lines={3} />
       </div>
     );
@@ -69,8 +78,8 @@ export function HeroStoryCard({
 
   if (!hero) {
     return (
-      <div className="flex min-h-[160px] items-center justify-center rounded-widget border border-white/10 bg-surface p-widget">
-        <p className="text-sm text-gray-500">No trending stories</p>
+      <div className="flex min-h-[160px] items-center justify-center rounded-[14px] border border-[--border] bg-surface p-5">
+        <p className="text-[11px] text-muted">No trending stories</p>
       </div>
     );
   }
@@ -88,41 +97,61 @@ export function HeroStoryCard({
   return (
     <Wrapper
       {...linkProps}
-      className="group relative block overflow-hidden rounded-widget border border-accent-500/30 bg-gradient-to-br from-accent-950/50 to-surface p-widget-lg transition-colors hover:border-accent-500/50"
+      className="group relative block overflow-hidden rounded-[14px] border border-[rgba(124,110,255,0.2)] bg-gradient-to-br from-[#0f0f26] via-[#1a1040] to-[#0f1a26] p-5"
     >
-      {hero.thumbnailUrl && (
-        <div className="absolute inset-0 opacity-10 transition-opacity group-hover:opacity-15">
-          <Image
-            src={hero.thumbnailUrl}
-            alt=""
-            fill
-            sizes="(max-width: 768px) 100vw, 33vw"
-            className="object-cover"
-          />
-        </div>
-      )}
+      {/* Decorative glow */}
+      <div className="pointer-events-none absolute -right-[60px] -top-[60px] h-[250px] w-[250px] bg-[radial-gradient(circle,rgba(192,132,252,0.12),transparent_70%)]" />
+
       <div className="relative">
-        <div className="flex items-center gap-2">
-          <span className="rounded-full bg-accent-500/20 px-2 py-0.5 text-xs font-semibold text-accent-400 font-[family-name:var(--font-space-mono)]">
-            TOP STORY
-          </span>
-          <span className="text-xs text-gray-500 font-[family-name:var(--font-space-mono)]">
-            {hero.mentionCount} mentions &middot;{" "}
-            {(hero.velocity ?? 0).toFixed(1)}/hr
+        {/* Eyebrow */}
+        <div className="mb-2.5 flex items-center gap-1.5 font-[family-name:var(--font-space-mono)] text-[10px] font-bold uppercase tracking-[1.5px] text-accent-secondary">
+          Top Story Right Now
+        </div>
+
+        {/* Title */}
+        <h3 className="mb-2.5 text-[19px] font-extrabold leading-[1.25] tracking-[-0.4px] text-white">
+          {hero.headline}
+        </h3>
+
+        {/* Body text */}
+        <p className="mb-3.5 text-xs leading-[1.65] text-[#8884a8]">
+          {hero.mentionCount > 0
+            ? `Trending across ${hero.sources.length} platforms with ${formatMentions(hero.mentionCount)} mentions and growing at ${hero.velocity.toFixed(1)}/hr.`
+            : ""}
+        </p>
+
+        {/* Tags */}
+        <div className="mb-3.5 flex flex-wrap gap-1.5">
+          <span className="rounded-full border border-[rgba(124,110,255,0.2)] bg-[rgba(124,110,255,0.1)] px-[9px] py-[3px] text-[10px] font-semibold text-accent-secondary">
+            #{hero.topic}
           </span>
           {stale && (
-            <span className="rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs text-yellow-400 font-[family-name:var(--font-space-mono)]">
+            <span className="rounded-full bg-[rgba(255,184,48,0.12)] px-[9px] py-[3px] text-[10px] text-amber">
               outdated
             </span>
           )}
         </div>
-        <h3 className="mt-3 text-lg font-bold leading-snug text-foreground">
-          {hero.headline}
-        </h3>
-        <div className="mt-3 flex items-center gap-2">
-          {hero.sources.map((source) => (
-            <PlatformBadge key={source} platform={source} />
-          ))}
+
+        {/* Source pills */}
+        <div className="flex flex-wrap gap-2">
+          {hero.sources.map((source) => {
+            const cfg = SOURCE_CONFIG[source] ?? {
+              color: "var(--accent2)",
+              label: source,
+            };
+            return (
+              <div
+                key={source}
+                className="flex items-center gap-[5px] rounded-[6px] border border-[--border] bg-[rgba(255,255,255,0.04)] px-2.5 py-[5px] font-[family-name:var(--font-space-mono)] text-[10px] text-muted"
+              >
+                <span
+                  className="h-[7px] w-[7px] rounded-full"
+                  style={{ background: cfg.color }}
+                />
+                {cfg.label}
+              </div>
+            );
+          })}
         </div>
       </div>
     </Wrapper>
