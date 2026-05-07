@@ -16,7 +16,7 @@ export default function GlobalError({
 
   return (
     <html className="dark">
-      <body style={{ background: "#0b1120", color: "#e5e7eb" }}>
+      <body style={{ background: "#060610", color: "#e5e7eb" }}>
         <div
           style={{
             minHeight: "100vh",

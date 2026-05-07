@@ -32,7 +32,7 @@ AIP-Dash (AI Pulse Live Dashboard) — a real-time AI industry dashboard that ag
 - **Redis client**: Always use `getRedis()` from `@/lib/cache/redis`, never instantiate `new Redis()` directly. The lazy init pattern is required because Upstash validates URLs at construction time, which breaks `next build` when env vars aren't set.
 - **Sentry init**: All three Sentry configs (`instrumentation-client.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`) guard with `if (process.env.NEXT_PUBLIC_SENTRY_DSN)` before calling `Sentry.init()`. Keep this pattern — it prevents noisy warnings in local dev without a DSN.
 - **Sentry sample rates**: `tracesSampleRate` is env-configurable via `SENTRY_TRACES_SAMPLE_RATE` (server/edge) and `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` (client). Set to `0.1–0.2` for production.
-- **Dark theme**: Tailwind `darkMode: "class"` with `className="dark"` on `<html>`. Default background is `#0b1120`. Custom design tokens in `tailwind.config.ts`: `accent-*` (cyan palette), `surface-*` colors, `widget-*` spacing/typography/border-radius.
+- **Dark theme**: Tailwind `darkMode: "class"` with `className="dark"` on `<html>`. Default background is `#060610`. Custom design tokens in `tailwind.config.ts`: `accent-*` (purple palette, primary `#7c6eff`), `accent-secondary` (`#c084fc`), `platform-*` (YouTube/Reddit/X), `surface-*` colors, `widget-*` spacing/typography/border-radius. Fonts: DM Sans (body) + Space Mono (monospace labels) via `next/font/google`.
 
 ## Environment Variables
 
