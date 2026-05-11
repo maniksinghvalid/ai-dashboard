@@ -38,10 +38,29 @@ Decimal phases appear between their surrounding integers in numeric order.
   6. **Cron DAG runs the 3 tiers under 30s:** `app/api/cron/refresh/route.ts` exports `maxDuration = 30`, executes Tier 1 → Tier 2 → Tier 3 sequentially with `Promise.allSettled` per tier, and a single failed leg does not block its siblings or downstream tiers where they are independent.
   7. **Tests run green:** `npm test` exits 0 with all five required unit-test files present (`lib/topics.test.ts`, `lib/api/sentiment.test.ts` covering `preprocessText`, `lib/api/trending.test.ts` covering velocity + hero threshold, `lib/api/alerts.test.ts` covering spike detection, `lib/cache/timeseries.test.ts`); `vitest.config.ts` uses `environment: "node"` and aliases `@/*` to project root; CLAUDE.md "Commands" lists `npm test`.
   8. **Env contract migrated:** `.env.example` contains `TOGETHER_API_KEY` + `SENTIMENT_DAILY_CHAR_BUDGET` (default ~200000), `HUGGINGFACE_API_TOKEN` is **absent**, and the CLAUDE.md "Environment Variables" section reflects the same.
-**Plans**: TBD (see "Suggested in-phase ordering" below — `/gsd-plan-phase 1` will produce the per-plan breakdown)
+**Plans**: 11 plans (see below — produced by `/gsd-plan-phase 1`)
 **UI hint**: yes
 
-**Suggested in-phase ordering** (from synthesis Roadmapper hints — non-binding; the planner refines):
+Plans:
+- [ ] 01-01-PLAN.md — Vitest bootstrap (vitest + @vitest/coverage-v8 + tsx + scripts + vitest.config.ts)
+- [ ] 01-02-PLAN.md — Topic taxonomy (lib/topics.ts + Topic type + matchTopic + lib/topics.test.ts)
+- [ ] 01-03-PLAN.md — Types + constants extension (Sentiment + SpikeAlert types; 4 new CACHE_KEYS + tenMin TTL)
+- [ ] 01-04-PLAN.md — Timeseries ZSET wrapper (lib/cache/timeseries.ts: zaddTimepoint/zrangeWindow/capToSlots + tests)
+- [ ] 01-05-PLAN.md — Trending velocity refactor (lib/api/trending.ts: AI_TOPICS + ZSET velocity + pickHeroCandidate + tests)
+- [ ] 01-06-PLAN.md — Spike alerts (lib/api/alerts.ts: detectSpike + writeSpikeAlert with LPUSH+LTRIM pair + tests)
+- [ ] 01-07-PLAN.md — Sentiment engine + route (lib/api/sentiment.ts + app/api/sentiment/route.ts + tests)
+- [ ] 01-08-PLAN.md — Hero promoter + route (lib/api/hero.ts + app/api/hero/route.ts with relaxation comment)
+- [ ] 01-09-PLAN.md — Cron 3-tier DAG (app/api/cron/refresh/route.ts: maxDuration=30 + Tier 1/2/3 Promise.allSettled)
+- [ ] 01-10-PLAN.md — Dashboard wiring + sentiment widget polish + hero API-first (use-dashboard + SentimentWidget + HeroStoryCard + DashboardShell)
+- [ ] 01-11-PLAN.md — Env contract + CLAUDE.md updates (.env.example + CLAUDE.md commands/env sections)
+
+**Wave structure** (for parallel execution):
+- **Wave 1** (foundations, no inter-deps): 01-01, 01-02, 01-03, 01-04
+- **Wave 2** (feature modules, depend on Wave 1): 01-05, 01-06, 01-07, 01-08
+- **Wave 3** (orchestration + UI): 01-09, 01-10
+- **Wave 4** (docs): 01-11
+
+**Suggested in-phase ordering** (from synthesis Roadmapper hints — refined into the wave structure above):
 1. Test infrastructure (D6, REQ-vitest-bootstrap) — unblocks everything else
 2. Topic taxonomy (REQ-topic-taxonomy) — pure data, prerequisite for trending refactor
 3. Time-series wrapper `lib/cache/timeseries.ts` — pre-req for trending + alerts
@@ -63,4 +82,4 @@ Single phase. No decimals planned.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. SCRUM-38 Implementation | 0/TBD | Not started | - |
+| 1. SCRUM-38 Implementation | 0/11 | Not started | - |
