@@ -55,6 +55,21 @@ export interface HeroStory extends TrendingTopic {
   link: string | null;
 }
 
+export interface Sentiment {
+  positive: number;
+  neutral: number;
+  negative: number;
+  sampleSize: number;
+}
+
+export interface SpikeAlert {
+  topic: string;
+  velocity: number;
+  baseline: number;
+  multiplier: number;
+  detectedAt: string;
+}
+
 export interface CachedData<T> {
   data: T;
   fetchedAt: string;

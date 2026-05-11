@@ -41,11 +41,16 @@ export const CACHE_KEYS = {
   twitter: "x:feed",
   trending: "trending:topics",
   news: "news:feed",
+  sentiment: "sentiment:latest",
+  trendingRanked: "trending:ranked",
+  hero: "hero:cross-platform",
+  spikes: "alerts:spikes",
 } as const;
 
 export const CACHE_MAX_AGE = {
   default: 15 * 60 * 1000, // 15 minutes
   twitter: 10 * 60 * 1000, // 10 minutes
+  tenMin: 10 * 60 * 1000, // 10 minutes (hero, trendingRanked)
 } as const;
 
 export const APIFY_ACTOR_ID = "trudax/reddit-scraper-lite";

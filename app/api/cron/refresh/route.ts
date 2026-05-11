@@ -3,12 +3,24 @@ import { Receiver } from "@upstash/qstash";
 import * as Sentry from "@sentry/nextjs";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
+
 import { fetchYouTubeVideos } from "@/lib/api/youtube";
 import { fetchRedditPosts } from "@/lib/api/reddit";
 import { fetchTweets } from "@/lib/api/twitter";
 import { fetchNews } from "@/lib/api/news";
-import { fetchAndCacheTrending } from "@/lib/api/trending";
+import { fetchAndCacheTrending, getAlertsRows } from "@/lib/api/trending";
+import { promoteHero } from "@/lib/api/hero";
+import { writeSpikeAlertsFromTrending } from "@/lib/api/alerts";
+import { fetchAndCacheSentiment } from "@/lib/api/sentiment";
 import type { Video, RedditPost, Tweet } from "@/lib/types";
+
+function captureIfSentry(err: unknown, label: string) {
+  console.error(`[cron] ${label} failed:`, err);
+  if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+    Sentry.captureException(err);
+  }
+}
 
 async function refreshAllFeeds() {
   const summary: Record<string, "ok" | "failed"> = {
@@ -17,8 +29,12 @@ async function refreshAllFeeds() {
     twitter: "failed",
     news: "failed",
     trending: "failed",
+    hero: "failed",
+    alerts: "failed",
+    sentiment: "failed",
   };
 
+  // ─── Tier 1: parallel external fetches ──────────────────────────────────
   const [ytResult, redditResult, twitterResult, newsResult] =
     await Promise.allSettled([
       fetchYouTubeVideos(),
@@ -35,51 +51,79 @@ async function refreshAllFeeds() {
     videos = ytResult.value;
     summary.youtube = "ok";
   } else {
-    console.error("[cron] YouTube fetch failed:", ytResult.reason);
-    if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-      Sentry.captureException(ytResult.reason);
-    }
+    captureIfSentry(ytResult.reason, "YouTube fetch");
   }
 
   if (redditResult.status === "fulfilled") {
     posts = redditResult.value;
     summary.reddit = "ok";
   } else {
-    console.error("[cron] Reddit fetch failed:", redditResult.reason);
-    if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-      Sentry.captureException(redditResult.reason);
-    }
+    captureIfSentry(redditResult.reason, "Reddit fetch");
   }
 
   if (twitterResult.status === "fulfilled") {
     tweets = twitterResult.value;
     summary.twitter = "ok";
   } else {
-    console.error("[cron] Twitter fetch failed:", twitterResult.reason);
-    if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-      Sentry.captureException(twitterResult.reason);
-    }
+    captureIfSentry(twitterResult.reason, "Twitter fetch");
   }
 
   if (newsResult.status === "fulfilled") {
     summary.news = "ok";
   } else {
-    console.error("[cron] News fetch failed:", newsResult.reason);
-    if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-      Sentry.captureException(newsResult.reason);
-    }
+    captureIfSentry(newsResult.reason, "News fetch");
   }
 
-  if (videos.length > 0 || posts.length > 0 || tweets.length > 0) {
-    try {
-      await fetchAndCacheTrending(videos, posts, tweets);
-      summary.trending = "ok";
-    } catch (err) {
-      console.error("[cron] Trending calculation failed:", err);
-      if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-        Sentry.captureException(err);
-      }
-    }
+  // ─── Tier 2: trending tally → ZSETs + ranked cache (depends on Tier 1) ──
+  const trendingSettled = await Promise.allSettled([
+    fetchAndCacheTrending(videos, posts, tweets),
+  ]);
+  const trendingOutcome = trendingSettled[0];
+  if (trendingOutcome.status === "fulfilled") {
+    summary.trending = "ok";
+  } else {
+    captureIfSentry(trendingOutcome.reason, "Tier 2 trending");
+  }
+
+  // ─── Tier 3: hero ‖ alerts ‖ sentiment (depend on Tier 2 ZSETs) ─────────
+  const now = Math.floor(Date.now() / 1000);
+
+  // Canonical alerts rows from plan 05's getAlertsRows — never reconstruct topicId inline.
+  let rowsForAlerts: Awaited<ReturnType<typeof getAlertsRows>> = [];
+  try {
+    rowsForAlerts = await getAlertsRows(now);
+  } catch (err) {
+    captureIfSentry(err, "Tier 3 getAlertsRows");
+    rowsForAlerts = [];
+  }
+
+  const itemsForSentiment: Array<{ text: string }> = [
+    ...posts.map((p) => ({ text: p.title })),
+    ...tweets.map((t) => ({ text: t.text })),
+  ];
+
+  const [heroResult, alertsResult, sentimentResult] = await Promise.allSettled([
+    promoteHero(),
+    writeSpikeAlertsFromTrending(rowsForAlerts),
+    fetchAndCacheSentiment(itemsForSentiment),
+  ]);
+
+  if (heroResult.status === "fulfilled") {
+    summary.hero = "ok";
+  } else {
+    captureIfSentry(heroResult.reason, "Tier 3 hero");
+  }
+
+  if (alertsResult.status === "fulfilled") {
+    summary.alerts = "ok";
+  } else {
+    captureIfSentry(alertsResult.reason, "Tier 3 alerts");
+  }
+
+  if (sentimentResult.status === "fulfilled") {
+    summary.sentiment = "ok";
+  } else {
+    captureIfSentry(sentimentResult.reason, "Tier 3 sentiment");
   }
 
   return NextResponse.json({

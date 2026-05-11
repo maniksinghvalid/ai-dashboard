@@ -14,7 +14,8 @@ import { NewsWidget } from "@/components/widgets/NewsWidget";
 import { SentimentWidget } from "@/components/widgets/SentimentWidget";
 
 export function DashboardShell() {
-  const { youtube, reddit, twitter, news, trending } = useDashboard();
+  const { youtube, reddit, twitter, news, trending, sentiment, hero } =
+    useDashboard();
 
   return (
     <div className="relative z-[1] min-h-screen bg-background">
@@ -52,6 +53,7 @@ export function DashboardShell() {
               news={news.data}
               isLoading={trending.isLoading}
               stale={trending.stale || youtube.stale || news.stale}
+              apiHero={hero.data}
             />
           </WidgetErrorBoundary>
 
@@ -65,7 +67,12 @@ export function DashboardShell() {
           </WidgetErrorBoundary>
 
           <WidgetErrorBoundary fallbackTitle="Sentiment unavailable">
-            <SentimentWidget />
+            <SentimentWidget
+              data={sentiment.data}
+              stale={sentiment.stale}
+              isLoading={sentiment.isLoading}
+              error={sentiment.error}
+            />
           </WidgetErrorBoundary>
         </div>
 

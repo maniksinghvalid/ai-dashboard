@@ -59,22 +59,27 @@ export function HeroStoryCard({
   news,
   isLoading,
   stale = false,
+  apiHero = null,
 }: {
   topics: TrendingTopic[] | null;
   videos: Video[] | null;
   news: NewsItem[] | null;
   isLoading: boolean;
   stale?: boolean;
+  apiHero?: HeroStory | null;
 }) {
-  if (isLoading) {
+  // Hero-card flicker policy: prefer API hero; else fall back to client-derived
+  // hero (never blank during a fetch when fallback data exists).
+  const hero: HeroStory | null =
+    apiHero ?? deriveHeroStory(topics, videos, news);
+
+  if (!hero && isLoading) {
     return (
       <div className="rounded-[14px] border border-[rgba(124,110,255,0.2)] bg-gradient-to-br from-[#0f0f26] via-[#1a1040] to-[#0f1a26] p-5">
         <WidgetSkeleton lines={3} />
       </div>
     );
   }
-
-  const hero = deriveHeroStory(topics, videos, news);
 
   if (!hero) {
     return (
