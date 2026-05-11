@@ -23,10 +23,10 @@ export const TWITTER_USERS = [
   { handle: "karpathy", userId: "33836629" },
   // TODO: Look up correct numeric user ID for @DarioAmodei via https://tweeterid.com
   // { handle: "DarioAmodei", userId: "REPLACE_ME" },
-  { handle: "fchollet", userId: "485117960" },
-  { handle: "AnthropicAI", userId: "1450081635559428100" },
-  { handle: "OpenAI", userId: "1511943437373345793" },
-  { handle: "GoogleDeepMind", userId: "1542437028" },
+  { handle: "fchollet", userId: "68746721" },
+  { handle: "AnthropicAI", userId: "1353836358901501952" },
+  { handle: "OpenAI", userId: "4398626122" },
+  { handle: "GoogleDeepMind", userId: "4783690002" },
 ] as const;
 
 export const RSS_FEEDS = [
@@ -41,11 +41,16 @@ export const CACHE_KEYS = {
   twitter: "x:feed",
   trending: "trending:topics",
   news: "news:feed",
+  sentiment: "sentiment:latest",
+  trendingRanked: "trending:ranked",
+  hero: "hero:cross-platform",
+  spikes: "alerts:spikes",
 } as const;
 
 export const CACHE_MAX_AGE = {
   default: 15 * 60 * 1000, // 15 minutes
   twitter: 10 * 60 * 1000, // 10 minutes
+  tenMin: 10 * 60 * 1000, // 10 minutes (hero, trendingRanked)
 } as const;
 
 export const APIFY_ACTOR_ID = "trudax/reddit-scraper-lite";

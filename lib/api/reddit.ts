@@ -18,7 +18,7 @@ import { cacheSet } from "@/lib/cache/helpers";
  */
 function normalizeApifyPost(item: Record<string, any>): RedditPost {
   const rawSubreddit: string =
-    item.community ?? item.subreddit ?? item.subredditName ?? "";
+    item.parsedCommunityName ?? item.communityName ?? item.community ?? item.subreddit ?? item.subredditName ?? "";
   const subreddit = rawSubreddit.replace(/^r\//, "");
 
   return {
@@ -26,7 +26,7 @@ function normalizeApifyPost(item: Record<string, any>): RedditPost {
     title: String(item.title ?? ""),
     author: String(item.username ?? item.author ?? item.authorName ?? ""),
     subreddit,
-    score: Number(item.score ?? item.upVotes ?? 0),
+    score: Number(item.upVotes ?? item.score ?? 0),
     numComments: Number(
       item.numberOfComments ?? item.numComments ?? item.commentCount ?? 0,
     ),
@@ -68,7 +68,7 @@ export async function fetchRedditPosts(): Promise<RedditPost[]> {
       startUrls: SUBREDDITS.map((s) => ({
         url: `https://www.reddit.com/r/${s}/hot/`,
       })),
-      maxItems: 100,
+      maxItems: 500,
       sort: "hot",
     },
     { waitSecs: 45 },
@@ -77,6 +77,7 @@ export async function fetchRedditPosts(): Promise<RedditPost[]> {
   const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
   const posts: RedditPost[] = (items as Record<string, any>[])
+    .filter((item) => item.dataType !== "comment")
     .map(normalizeApifyPost)
     .filter(isFlairAllowed);
 
