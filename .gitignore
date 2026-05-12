@@ -30,7 +30,7 @@ yarn-error.log*
 
 # claude local config
 .claude.local.md
-.claude/worktrees/
+.claude/
 
 # architecture / design references
 /arch/
