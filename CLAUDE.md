@@ -29,16 +29,15 @@ AIP-Dash (AI Pulse Live Dashboard) — a real-time AI industry dashboard that ag
 - **`lib/types.ts`** — Shared types: `Video`, `RedditPost`, `Tweet`, `NewsItem`, `TrendingTopic`, `HeroStory`, `CachedData<T>`, `ApiResponse<T>`
 - **`lib/constants.ts`** — Channel IDs, subreddits, Twitter users, RSS feeds, cache keys/TTLs
 - **`lib/utils/format.ts`** — Shared utilities: `formatRelativeTime()` — single source of truth for all relative time formatting across widgets
-- **`lib/hooks/use-dashboard.ts`** — `useDashboard()` hook: fetches all 5 data sources via SWR, returns `{ youtube, reddit, twitter, news, trending }` each with `{ data, stale, isLoading, error }`
+- **`lib/hooks/use-dashboard.ts`** — `useDashboard()` hook: fetches all dashboard data sources via SWR, returns `{ youtube, reddit, twitter, news, trending, sentiment, hero }` each with `{ data, stale, isLoading, error }`
 - **`lib/hooks/use-api-data.ts`** — `useApiData<T>()`: generic SWR wrapper for `/api/*` endpoints, handles `ApiResponse<T>` shape
 
 ### Frontend Component Architecture
 
 - **`components/DashboardShell.tsx`** — Client component (`"use client"`), orchestrates the full dashboard layout. Uses `useDashboard()` to fetch data, wraps each widget in `WidgetErrorBoundary`, and lays out the grid: `lg:grid-cols-2 xl:grid-cols-[280px_1fr_280px]`.
-- **Widget pattern**: Each data widget (YouTube, Reddit, X, Trending, News) accepts `{ data, stale, isLoading, error }` props, renders via `WidgetCard` (with `icon` / `iconBg` / `title` / `badge?` / `stale?`), and handles loading/error/empty states internally. `WidgetErrorBoundary` (class component, reports to Sentry) wraps each widget in `DashboardShell`.
+- **Widget pattern**: Each data widget (YouTube, Reddit, X, Trending, News, Sentiment) accepts `{ data, stale, isLoading, error }` props, renders via `WidgetCard` (with `icon` / `iconBg` / `title` / `badge?` / `stale?`), and handles loading/error/empty states internally. `WidgetErrorBoundary` (class component, reports to Sentry) wraps each widget in `DashboardShell`.
 - **Exceptions to the pattern**:
   - `HeroStoryCard` does NOT use `WidgetCard` — it has a custom gradient layout and derives its content from trending + youtube + news via `deriveHeroStory()`.
-  - `SentimentWidget` is a visual placeholder with hardcoded sample data (no API backend yet).
 
 ## Key Patterns
 
@@ -54,7 +53,7 @@ AIP-Dash (AI Pulse Live Dashboard) — a real-time AI industry dashboard that ag
 
 ## Environment Variables
 
-See `.env.example` for all variables. Required: `YOUTUBE_API_KEY`, `APIFY_API_TOKEN`, `X_BEARER_TOKEN`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `CRON_SECRET`, `TOGETHER_API_KEY`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`. Optional: `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_TRACES_SAMPLE_RATE`, `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`, `SENTIMENT_DAILY_CHAR_BUDGET` (default 200000).
+See `.env.example` for all variables. Required: `YOUTUBE_API_KEY`, `APIFY_API_TOKEN`, `X_BEARER_TOKEN`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `CRON_SECRET`, `TOGETHER_API_KEY`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`. Optional: `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_TRACES_SAMPLE_RATE`, `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`, `SENTIMENT_DAILY_CHAR_BUDGET` (default 200000), `VERCEL_AUTOMATION_BYPASS_SECRET` (auto-set by Vercel when Protection Bypass for Automation is enabled — see Deployment Protection below).
 
 ## Git Workflow
 
@@ -64,6 +63,25 @@ See `.env.example` for all variables. Required: `YOUTUBE_API_KEY`, `APIFY_API_TO
 ## Deployment
 
 Vercel with daily cron at `/api/cron/refresh` (configured in `vercel.json`, schedule `0 0 * * *` UTC). Hobby plan restricts crons to once per day — use Upstash QStash for 15-min intervals via the POST handler. `SENTRY_AUTH_TOKEN` is optional — builds succeed without it (source map upload silently skips).
+
+### Deployment Protection (Vercel Authentication)
+
+This project runs with Vercel Authentication enabled (Settings → Deployment Protection). The Vercel edge returns 401 with an HTML "Authentication Required" page (and a `_vercel_sso_nonce` cookie) to unauthenticated callers — **before** the route handler runs. The cron route's `Authorization: Bearer $CRON_SECRET` check is correct but unreachable from outside without bypassing the edge first.
+
+To allow programmatic access, **Protection Bypass for Automation** is enabled in the same settings page. Vercel auto-injects the secret as the system env var `VERCEL_AUTOMATION_BYPASS_SECRET`. Callers must include header `x-vercel-protection-bypass: <secret>` (or `?x-vercel-protection-bypass=<secret>` query param for systems that can't set headers — `CRON_SECRET` is still verified by the route, so leaking the bypass alone doesn't authorize a cron run).
+
+**Bypass interactions per caller:**
+
+| Caller | Path | Edge bypass | App-level auth |
+|---|---|---|---|
+| Upstash QStash (15-min schedule) | POST `/api/cron/refresh` | Set `x-vercel-protection-bypass` header per scheduled message in QStash console | QStash signature (`upstash-signature`) verified in route via `QSTASH_*_SIGNING_KEY` |
+| Manual `curl` against the deployed URL | GET `/api/cron/refresh` | Add `-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET"` | `-H "Authorization: Bearer $CRON_SECRET"` |
+| Manual `curl` against local dev | GET `/api/cron/refresh` | Not applicable (no Vercel edge locally) | `-H "Authorization: Bearer $CRON_SECRET"` |
+| Vercel built-in scheduled cron (`vercel.json` `crons`) | GET `/api/cron/refresh` | **No way to send custom headers — Vercel's `crons` config doesn't support them.** The daily Vercel cron will 401 silently while Vercel Authentication is on. | Vercel auto-sends `Authorization: Bearer $CRON_SECRET` if the env var is set, but the request never reaches the route. |
+
+Practical implication: the QStash 15-min POST is the only path that actually refreshes data under protection. The daily Vercel cron in `vercel.json` is effectively a no-op while protection is on — remove it from `vercel.json` if you don't want noise in Vercel's cron logs, or leave it and rely on QStash.
+
+When rotating the bypass secret in Vercel, **redeploy** — the secret is baked into deployments at build time, so old deployments keep the old value and will 401 for new callers.
 
 ## Local-only directories
 
