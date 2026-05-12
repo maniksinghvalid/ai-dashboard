@@ -74,12 +74,14 @@ To allow programmatic access, **Protection Bypass for Automation** is enabled in
 
 | Caller | Path | Edge bypass | App-level auth |
 |---|---|---|---|
-| Upstash QStash (15-min schedule) | POST `/api/cron/refresh` | Set `x-vercel-protection-bypass` header per scheduled message in QStash console | QStash signature (`upstash-signature`) verified in route via `QSTASH_*_SIGNING_KEY` |
-| Manual `curl` against the deployed URL | GET `/api/cron/refresh` | Add `-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET"` | `-H "Authorization: Bearer $CRON_SECRET"` |
+| Upstash QStash (15-min schedule) | POST `/api/cron/refresh` | Query param on the schedule's destination URL: `?x-vercel-protection-bypass=<secret>`. The QStash console doesn't surface a custom-headers field on schedules, so the query-param form (Vercel's documented fallback for "tools that cannot set custom headers") is the transport. | QStash signature (`upstash-signature`) verified in route via `QSTASH_*_SIGNING_KEY`. The route calls `Receiver.verify({ signature, body })` without passing `url`, so the added query string does not disturb signature verification. |
+| Manual `curl` against the deployed URL | GET `/api/cron/refresh` | Header: `-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET"` | `-H "Authorization: Bearer $CRON_SECRET"` |
 | Manual `curl` against local dev | GET `/api/cron/refresh` | Not applicable (no Vercel edge locally) | `-H "Authorization: Bearer $CRON_SECRET"` |
-| Vercel built-in scheduled cron (`vercel.json` `crons`) | GET `/api/cron/refresh` | **No way to send custom headers — Vercel's `crons` config doesn't support them.** The daily Vercel cron will 401 silently while Vercel Authentication is on. | Vercel auto-sends `Authorization: Bearer $CRON_SECRET` if the env var is set, but the request never reaches the route. |
+| Vercel built-in scheduled cron (`vercel.json` `crons`) | GET `/api/cron/refresh` | **No way to send custom headers or query params — Vercel's `crons` config supports only `path` + `schedule`.** The daily Vercel cron will 401 silently while Vercel Authentication is on. | Vercel auto-sends `Authorization: Bearer $CRON_SECRET` if the env var is set, but the request never reaches the route. |
 
 Practical implication: the QStash 15-min POST is the only path that actually refreshes data under protection. The daily Vercel cron in `vercel.json` is effectively a no-op while protection is on — remove it from `vercel.json` if you don't want noise in Vercel's cron logs, or leave it and rely on QStash.
+
+**Security trade-off for QStash query-param transport**: the bypass secret will appear in Vercel function logs, Upstash request history, and Sentry breadcrumbs (Sentry captures `request.url` by default). Defense in depth still applies — leaking the bypass alone does NOT authorize a refresh; the QStash signature on the request body (POST) and `CRON_SECRET` (GET) gate the actual work at the application layer. The bypass only gets past Vercel's edge protection. Rotate the bypass periodically: regenerate in Vercel dashboard → redeploy (so the new value is baked in) → update the QStash schedule URL with the new secret.
 
 When rotating the bypass secret in Vercel, **redeploy** — the secret is baked into deployments at build time, so old deployments keep the old value and will 401 for new callers.
 
