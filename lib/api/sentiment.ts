@@ -1,14 +1,13 @@
-import * as Sentry from "@sentry/nextjs";
 import { getRedis } from "@/lib/cache/redis";
 import { cacheSet } from "@/lib/cache/helpers";
 import { CACHE_KEYS } from "@/lib/constants";
 import type { Sentiment } from "@/lib/types";
 
-const TOGETHER_MODEL = "cardiffnlp/twitter-roberta-base-sentiment-latest";
+const TOGETHER_MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo";
 const TOGETHER_ENDPOINT = "https://api.together.xyz/v1/chat/completions";
 const DEFAULT_BUDGET = 200_000;
-const BATCH_LIMIT = 100;
-const TIMEOUT_MS = 5_000;
+const BATCH_LIMIT = 20;
+const TIMEOUT_MS = 35_000;
 const BUDGET_EXPIRE_SECONDS = 86_400 * 2; // 48h so day-boundary edge cases survive
 
 type Label = "positive" | "neutral" | "negative";
@@ -16,8 +15,8 @@ type Label = "positive" | "neutral" | "negative";
 type Prediction = { label: Label; score: number };
 
 export function preprocessText(text: string): string {
-  // F2 / CON-cardiffnlp-preprocessing: required by the cardiffnlp model card.
-  // @<handle> → literal "@user"; any http(s)://… URL → literal "http".
+  // Strip @-handles and URLs — they're noise for sentiment classification and
+  // also keep input small (handles can be long, URLs can be huge).
   return text
     .replace(/@[A-Za-z0-9_]+/g, "@user")
     .replace(/https?:\/\/\S+/g, "http");
@@ -122,10 +121,12 @@ export async function fetchAndCacheSentiment(
 ): Promise<Sentiment> {
   const apiKey = process.env.TOGETHER_API_KEY;
   if (!apiKey) {
-    console.warn("[sentiment] TOGETHER_API_KEY not set, skipping");
-    return aggregateSentiment([]);
+    throw new Error("[sentiment] TOGETHER_API_KEY not set");
   }
 
+  // BATCH_LIMIT bounds Together latency to fit the cron's maxDuration; we take
+  // the first N rather than sampling because upstream feeds already arrive in
+  // recency order — newest items dominate the signal.
   const preprocessed = items
     .map((i) => preprocessText(i.text))
     .filter((t) => t.length > 0)
@@ -139,8 +140,7 @@ export async function fetchAndCacheSentiment(
 
   const totalChars = preprocessed.reduce((s, t) => s + t.length, 0);
   if (!(await checkAndConsumeBudget(totalChars))) {
-    console.warn("[sentiment] daily char budget tripped");
-    return aggregateSentiment([]);
+    throw new Error("[sentiment] daily char budget tripped");
   }
 
   const controller = new AbortController();
@@ -172,22 +172,15 @@ export async function fetchAndCacheSentiment(
     });
 
     if (res.status === 401) {
-      console.error(
-        "[sentiment] 401 from Together AI — TOGETHER_API_KEY may be expired or rotated",
+      throw new Error(
+        "[sentiment] Together AI 401 — TOGETHER_API_KEY may be expired or rotated",
       );
-      if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-        Sentry.captureException(
-          new Error("Together AI 401 — key rotation suspected"),
-        );
-      }
-      return aggregateSentiment([]);
     }
 
     if (!res.ok) {
-      console.error(
+      throw new Error(
         `[sentiment] Together AI returned ${res.status} ${res.statusText}`,
       );
-      return aggregateSentiment([]);
     }
 
     const json = await res.json();
@@ -196,11 +189,10 @@ export async function fetchAndCacheSentiment(
     await cacheSet(CACHE_KEYS.sentiment, sentiment);
     return sentiment;
   } catch (err) {
-    console.error("[sentiment] fetch failed:", err);
-    if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-      Sentry.captureException(err);
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(`[sentiment] Together AI timed out after ${TIMEOUT_MS}ms`);
     }
-    return aggregateSentiment([]);
+    throw err;
   } finally {
     clearTimeout(timeout);
   }

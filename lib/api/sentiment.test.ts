@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { preprocessText, aggregateSentiment } from "@/lib/api/sentiment";
+import {
+  preprocessText,
+  aggregateSentiment,
+  fetchAndCacheSentiment,
+} from "@/lib/api/sentiment";
 
-describe("preprocessText (cardiffnlp model card contract)", () => {
+describe("preprocessText (noise reduction for the LLM judge)", () => {
   it("replaces @handle with literal @user and URL with literal http", () => {
     expect(preprocessText("Hello @karpathy check https://x.com/foo")).toBe(
       "Hello @user check http",
@@ -59,5 +63,23 @@ describe("aggregateSentiment", () => {
     ]);
     expect(r.positive + r.neutral + r.negative).toBe(100);
     expect(r.sampleSize).toBe(7);
+  });
+});
+
+describe("fetchAndCacheSentiment failure signalling", () => {
+  // Guards the contract that no-cache paths throw, so Promise.allSettled in the
+  // cron can distinguish "cached new data" (fulfilled) from "bailed without
+  // writing" (rejected) and the cron summary stays honest. Regression-tests
+  // the specific bug that caused /api/sentiment to 503 silently.
+  it("throws when TOGETHER_API_KEY is missing", async () => {
+    const prev = process.env.TOGETHER_API_KEY;
+    delete process.env.TOGETHER_API_KEY;
+    try {
+      await expect(
+        fetchAndCacheSentiment([{ text: "hello" }]),
+      ).rejects.toThrow(/TOGETHER_API_KEY/);
+    } finally {
+      if (prev !== undefined) process.env.TOGETHER_API_KEY = prev;
+    }
   });
 });
