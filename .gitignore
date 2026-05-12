@@ -28,6 +28,16 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# claude local config
+.claude.local.md
+.claude/
+
+# architecture / design references
+/arch/
+
+# playwright QA screenshots
+/playwright-qa-screenshots/
+
 # vercel
 .vercel
 

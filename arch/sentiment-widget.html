@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Sentiment Widget — Gate 2 Mockup</title>
+    <style>
+      :root {
+        --surface-2: #13132b;
+        --accent: #7c6eff;
+        --accent-secondary: #c084fc;
+        --muted: #6b668a;
+        --border: rgba(124, 110, 255, 0.18);
+        --green: #22c55e;
+        --amber: #f59e0b;
+        --red: #ef4444;
+        --font-space-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+      }
+      body {
+        margin: 0;
+        padding: 32px;
+        background: #0d0d1f;
+        color: #e7e5ea;
+        font-family: "DM Sans", system-ui, sans-serif;
+      }
+      .card {
+        max-width: 280px;
+        padding: 16px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .icon {
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        background: var(--accent);
+        opacity: 0.9;
+      }
+      .title {
+        flex: 1;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: -0.2px;
+      }
+      .badge {
+        font-family: var(--font-space-mono);
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .bar {
+        display: flex;
+        height: 10px;
+        margin-bottom: 12px;
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .seg-pos { background: var(--green); }
+      .seg-neu { background: var(--amber); }
+      .seg-neg { background: var(--red); }
+      .legend {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 11px;
+      }
+      .legend-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+      }
+      .label {
+        flex: 1;
+        color: var(--muted);
+      }
+      .value {
+        font-family: var(--font-space-mono);
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="card">
+      <header class="header">
+        <span class="icon" aria-hidden="true"></span>
+        <span class="title">Community Sentiment</span>
+        <span class="badge">n=184</span>
+      </header>
+
+      <div class="bar" aria-label="Sentiment distribution">
+        <div class="seg-pos" style="flex: 62"></div>
+        <div class="seg-neu" style="flex: 28"></div>
+        <div class="seg-neg" style="flex: 10"></div>
+      </div>
+
+      <div class="legend">
+        <div class="legend-row">
+          <span class="swatch seg-pos"></span>
+          <span class="label">Positive</span>
+          <span class="value">62%</span>
+        </div>
+        <div class="legend-row">
+          <span class="swatch seg-neu"></span>
+          <span class="label">Neutral</span>
+          <span class="value">28%</span>
+        </div>
+        <div class="legend-row">
+          <span class="swatch seg-neg"></span>
+          <span class="label">Negative</span>
+          <span class="value">10%</span>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>

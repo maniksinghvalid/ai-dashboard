@@ -1,0 +1,4 @@
+docs:
+  - path: arch/precious-leaping-wren.md
+    type: SPEC
+    precedence: 0
