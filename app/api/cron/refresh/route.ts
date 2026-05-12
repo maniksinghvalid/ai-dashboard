@@ -3,7 +3,7 @@ import { Receiver } from "@upstash/qstash";
 import * as Sentry from "@sentry/nextjs";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 import { fetchYouTubeVideos } from "@/lib/api/youtube";
 import { fetchRedditPosts } from "@/lib/api/reddit";
