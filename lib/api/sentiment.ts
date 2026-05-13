@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { getRedis } from "@/lib/cache/redis";
 import { cacheSet } from "@/lib/cache/helpers";
 import { CACHE_KEYS } from "@/lib/constants";
@@ -172,6 +173,21 @@ export async function fetchAndCacheSentiment(
     });
 
     if (res.status === 401) {
+      // CON-key-rotation-observability: surface 401s with a distinct tag so a
+      // rotated/expired TOGETHER_API_KEY shows up in Sentry as something other
+      // than a generic "Together AI request failed" — the cron's outer catch
+      // would otherwise lose this signal.
+      console.error(
+        "[sentiment] 401 from Together AI — TOGETHER_API_KEY may be expired or rotated",
+      );
+      if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+        Sentry.captureException(
+          new Error(
+            "[sentiment] Together AI 401 — TOGETHER_API_KEY may be expired or rotated",
+          ),
+          { tags: { component: "sentiment", reason: "key-rotation-suspected" } },
+        );
+      }
       throw new Error(
         "[sentiment] Together AI 401 — TOGETHER_API_KEY may be expired or rotated",
       );

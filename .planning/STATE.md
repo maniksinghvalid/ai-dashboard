@@ -4,17 +4,17 @@
 
 See: .planning/PROJECT.md (updated 2026-05-11)
 
-**Core value:** Real-time AI industry dashboard — the SCRUM-38 phase adds the intelligence layer (sentiment engine, true velocity trending, cross-platform hero, spike alerts, Vitest) on top of the already-shipped data layer (SCRUM-36) and UI shell (SCRUM-37).
-**Current focus:** Phase 1 — SCRUM-38 Implementation
+**Core value:** Real-time AI industry dashboard — the SCRUM-38 phase added the intelligence layer (sentiment engine, true velocity trending, cross-platform hero, spike alerts, Vitest) on top of the already-shipped data layer (SCRUM-36) and UI shell (SCRUM-37). Phase 2 (Reddit Free Fallback) replaced the failing Apify Reddit scraper with Reddit's free JSON API. Both phases shipped 2026-05-13 and were retroactively reconciled into GSD state via /gsd-import + /superpowers:requesting-code-review.
+**Current focus:** No active phase. Phase 1 and Phase 2 both complete (retroactive close-out 2026-05-13).
 
 ## Current Position
 
-Phase: 1 of 1 (SCRUM-38 Implementation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-05-11 — Roadmap created from `.planning/intel/` ingest (SYNTHESIS.md, 11 locked decisions, 10 requirements, 13 constraints)
+Phase: complete (1 of 2 retroactively closed; 2 of 2 retroactively closed)
+Plan: 11/11 in Phase 1, 1/1 in Phase 2
+Status: All planned work shipped. Two locked-decision amendments (D8 amending D7, D9 amending F3) accepted during Phase 1 close-out and recorded in PROJECT.md.
+Last activity: 2026-05-13 — /superpowers:requesting-code-review validated Phase 1 against the 11 plans. Three Critical findings surfaced: D7 model drift (Llama-3.3-70B vs cardiffnlp), F3 cron-ceiling drift (60 vs 30), and missing Sentry capture on sentiment 401. User chose to amend D7→D8 and F3→D9 (codifying the runtime substitutions), and fix the Sentry capture directly. Phase 1 retroactively marked complete.
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100% (Phase 1 + Phase 2 retroactively closed 2026-05-13)
 
 ## Performance Metrics
 
@@ -27,7 +27,8 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. SCRUM-38 Implementation | 0/TBD | - | - |
+| 1. SCRUM-38 Implementation | 11/11 (retroactive) | - | - |
+| 2. Reddit Free Fallback | 1/1 (retroactive) | - | - |
 
 **Recent Trend:**
 - Last 5 plans: n/a

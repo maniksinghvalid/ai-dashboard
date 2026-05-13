@@ -33,7 +33,7 @@ All entries below are **LOCKED** — derived from the embedded `/plan-eng-review
 ### Sentiment provider + budget (D1, D7, F1)
 
 - **D1** — Sentiment inference goes through a **paid vendor** with a daily char-budget circuit breaker. HuggingFace Serverless is dropped entirely.
-- **D7** — **Together AI** is the chosen provider, hosting `cardiffnlp/twitter-roberta-base-sentiment-latest`. New env var: `TOGETHER_API_KEY`. Together's batch endpoint meets the 5s budget natively.
+- **D7** — **Together AI** is the chosen provider. New env var: `TOGETHER_API_KEY`. ~~Hosting `cardiffnlp/twitter-roberta-base-sentiment-latest`; Together's batch endpoint meets the 5s budget natively.~~ **D8 amendment (2026-05-13):** model is `meta-llama/Llama-3.3-70B-Instruct-Turbo` via the chat-completions endpoint as an LLM-as-judge classifier; the 5s budget premise no longer holds. See PROJECT.md decisions table for full D8 + D9 rationale.
 - **F1** — `.env.example` adds `TOGETHER_API_KEY` and `SENTIMENT_DAILY_CHAR_BUDGET` (default ~200000). `HUGGINGFACE_API_TOKEN` is explicitly **forbidden** — never introduce it.
 - **F2** — `lib/api/sentiment.ts` ships `preprocessText()` that replaces `@username` → literal `@user` and any `http*` URL → literal `http`. Required by the cardiffnlp model card. Must be unit-tested.
 
@@ -55,7 +55,7 @@ All entries below are **LOCKED** — derived from the embedded `/plan-eng-review
   - **Tier 2**: trending tally writes ZSETs (depends on Tier 1).
   - **Tier 3**: hero promoter ‖ alerts ‖ sentiment (depend on Tier 2, parallel to each other).
 - Failure of any leg must not block siblings or downstream-tier siblings where they are independent (existing pattern).
-- **F3** — Must `export const maxDuration = 30`. The DAG hits ~12s under load; Vercel's default 10s is too tight.
+- **F3** — ~~Must `export const maxDuration = 30`. The DAG hits ~12s under load; Vercel's default 10s is too tight.~~ **D9 amendment (2026-05-13):** exports `maxDuration = 60`. D8's LLM-judge sentiment leg uses a 35s timeout that cannot fit inside 30s. See PROJECT.md D9.
 
 ### Topic taxonomy (D5)
 
