@@ -55,7 +55,7 @@ AIP-Dash (AI Pulse Live Dashboard) — a real-time AI industry dashboard that ag
 
 ## Environment Variables
 
-See `.env.example` for all variables. Required: `YOUTUBE_API_KEY`, `APIFY_API_TOKEN`, `X_BEARER_TOKEN`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `CRON_SECRET`, `TOGETHER_API_KEY`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`. Optional: `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_TRACES_SAMPLE_RATE`, `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`, `SENTIMENT_DAILY_CHAR_BUDGET` (default 200000), `VERCEL_AUTOMATION_BYPASS_SECRET` (auto-set by Vercel when Protection Bypass for Automation is enabled — see Deployment Protection below).
+See `.env.example` for all variables. Required: `YOUTUBE_API_KEY`, `APIFY_API_TOKEN`, `X_BEARER_TOKEN`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `CRON_SECRET`, `TOGETHER_API_KEY`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`. Optional: `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_TRACES_SAMPLE_RATE`, `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`, `SENTIMENT_DAILY_CHAR_BUDGET` (default 200000), `REDDIT_USER_AGENT` (override Reddit JSON User-Agent string; defaults to `aip-dash/1.0 (https://github.com/maniksinghvalid/ai-dashboard)`), `VERCEL_AUTOMATION_BYPASS_SECRET` (auto-set by Vercel when Protection Bypass for Automation is enabled — see Deployment Protection below).
 
 ## Git Workflow
 

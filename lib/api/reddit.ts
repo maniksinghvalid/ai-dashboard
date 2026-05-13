@@ -1,15 +1,11 @@
-import { ApifyClient } from "apify-client";
-
 import type { RedditPost } from "@/lib/types";
-import {
-  SUBREDDITS,
-  CACHE_KEYS,
-  APIFY_ACTOR_ID,
-  REDDIT_FLAIR_ALLOWLIST,
-} from "@/lib/constants";
+import { SUBREDDITS, CACHE_KEYS, REDDIT_FLAIR_ALLOWLIST } from "@/lib/constants";
 import { cacheSet } from "@/lib/cache/helpers";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+const DEFAULT_USER_AGENT =
+  "aip-dash/1.0 (https://github.com/maniksinghvalid/ai-dashboard)";
+const USER_AGENT = process.env.REDDIT_USER_AGENT || DEFAULT_USER_AGENT;
+const PER_SUBREDDIT_LIMIT = 25;
 
 interface RedditJsonChild {
   id: string;
@@ -24,6 +20,12 @@ interface RedditJsonChild {
   created_utc: number;
   stickied: boolean;
   over_18: boolean;
+}
+
+interface RedditJsonResponse {
+  data?: {
+    children?: Array<{ kind: string; data: RedditJsonChild }>;
+  };
 }
 
 export function normalizeRedditJsonPost(raw: RedditJsonChild): RedditPost {
@@ -52,75 +54,68 @@ export function isPostKeepable(raw: RedditJsonChild): boolean {
   return !raw.stickied && !raw.over_18;
 }
 
-/**
- * Normalize a raw Apify item into the RedditPost shape.
- * The Apify Reddit scraper uses varying field names across versions,
- * so we check multiple possible keys for each property.
- */
-function normalizeApifyPost(item: Record<string, any>): RedditPost {
-  const rawSubreddit: string =
-    item.parsedCommunityName ?? item.communityName ?? item.community ?? item.subreddit ?? item.subredditName ?? "";
-  const subreddit = rawSubreddit.replace(/^r\//, "");
-
-  return {
-    id: String(item.id ?? item.dataId ?? ""),
-    title: String(item.title ?? ""),
-    author: String(item.username ?? item.author ?? item.authorName ?? ""),
-    subreddit,
-    score: Number(item.upVotes ?? item.score ?? 0),
-    numComments: Number(
-      item.numberOfComments ?? item.numComments ?? item.commentCount ?? 0,
-    ),
-    flair: item.flair ?? item.flairText ?? null,
-    url: String(item.url ?? item.link ?? ""),
-    createdAt: String(item.createdAt ?? item.scrapedAt ?? new Date().toISOString()),
-  };
-}
-
-/**
- * Returns true if the post should be kept based on flair filtering.
- * Posts without flair are always kept. Posts with flair are kept only
- * when the flair text partially matches (case-insensitive) any entry
- * in REDDIT_FLAIR_ALLOWLIST.
- */
 function isFlairAllowed(post: RedditPost): boolean {
   if (!post.flair) return true;
-
   const lower = post.flair.toLowerCase();
   return REDDIT_FLAIR_ALLOWLIST.some((allowed) =>
     lower.includes(allowed.toLowerCase()),
   );
 }
 
-/**
- * Fetch hot Reddit posts via the Apify Reddit scraper, normalize results,
- * filter by flair allowlist, cache, and return.
- */
-export async function fetchRedditPosts(): Promise<RedditPost[]> {
-  if (!process.env.APIFY_API_TOKEN) {
-    console.warn("[reddit] APIFY_API_TOKEN not set, skipping fetch");
+const RETRY_STATUS = new Set([429, 503]);
+
+function jitterMs(): number {
+  return 2000 + Math.floor(Math.random() * 3000);
+}
+
+async function fetchOnce(sub: string): Promise<Response> {
+  const url = `https://www.reddit.com/r/${sub}/hot.json?limit=${PER_SUBREDDIT_LIMIT}`;
+  return fetch(url, { headers: { "User-Agent": USER_AGENT } });
+}
+
+async function fetchSubreddit(sub: string): Promise<RedditPost[]> {
+  let res = await fetchOnce(sub);
+
+  if (RETRY_STATUS.has(res.status)) {
+    const wait = jitterMs();
+    console.warn(
+      `[reddit] r/${sub} got ${res.status}; retrying after ${wait}ms`,
+    );
+    await new Promise((r) => setTimeout(r, wait));
+    res = await fetchOnce(sub);
+  }
+
+  if (!res.ok) {
+    console.warn(
+      `[reddit] Non-200 response for r/${sub}: ${res.status} ${res.statusText}`,
+    );
     return [];
   }
 
-  const client = new ApifyClient({ token: process.env.APIFY_API_TOKEN });
+  const json = (await res.json()) as RedditJsonResponse;
+  const children = json.data?.children ?? [];
 
-  const run = await client.actor(APIFY_ACTOR_ID).call(
-    {
-      startUrls: SUBREDDITS.map((s) => ({
-        url: `https://www.reddit.com/r/${s}/hot/`,
-      })),
-      maxItems: 500,
-      sort: "hot",
-    },
-    { waitSecs: 45 },
+  return children
+    .filter((c) => c.kind === "t3")
+    .map((c) => c.data)
+    .filter(isPostKeepable)
+    .map(normalizeRedditJsonPost)
+    .filter(isFlairAllowed);
+}
+
+export async function fetchRedditPosts(): Promise<RedditPost[]> {
+  const results = await Promise.allSettled(
+    SUBREDDITS.map((sub) => fetchSubreddit(sub)),
   );
 
-  const { items } = await client.dataset(run.defaultDatasetId).listItems();
-
-  const posts: RedditPost[] = (items as Record<string, any>[])
-    .filter((item) => item.dataType !== "comment")
-    .map(normalizeApifyPost)
-    .filter(isFlairAllowed);
+  const posts: RedditPost[] = [];
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      posts.push(...result.value);
+    } else {
+      console.warn("[reddit] subreddit fetch rejected:", result.reason);
+    }
+  }
 
   await cacheSet(CACHE_KEYS.reddit, posts);
 
