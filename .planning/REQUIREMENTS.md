@@ -20,12 +20,12 @@ Total: 6 categories, 10 requirements.
 ### SENTIMENT
 
 #### REQ-sentiment-engine
-- **Description:** Build a Sentiment Analysis Engine that batches tweets + Reddit titles each refresh cycle, runs them through `cardiffnlp/twitter-roberta-base-sentiment-latest` via Together AI (per D7), aggregates pos/neu/neg %, and exposes them at `GET /api/sentiment`.
+- **Description:** Build a Sentiment Analysis Engine that batches tweets + Reddit titles each refresh cycle, runs them through Together AI (per D7 / **D8 amendment 2026-05-13**: `meta-llama/Llama-3.3-70B-Instruct-Turbo` LLM-as-judge classifier instead of `cardiffnlp/twitter-roberta-base-sentiment-latest`), aggregates pos/neu/neg %, and exposes them at `GET /api/sentiment`.
 - **Acceptance:**
   - `GET /api/sentiment` returns `{positive, neutral, negative, sampleSize}` with the three percentage fields summing to 100.
   - Cold-miss returns 503 (no stale fallback; mirrors `/api/trending` pattern).
-  - Sentiment refresh leg completes within a **5s budget** per refresh cycle (measured under `/benchmark`).
-  - Text inputs preprocessed per the cardiffnlp model card (F2): `@username` → `@user`, `http*` URLs → `http`.
+  - ~~Sentiment refresh leg completes within a **5s budget** per refresh cycle (measured under `/benchmark`).~~ **Superseded by D8/D9 (2026-05-13):** sentiment leg under D8 uses `TIMEOUT_MS = 35_000`; cron `maxDuration` is 60 (D9). 5s budget is not an acceptance criterion anymore.
+  - Text inputs preprocessed via F2: `@username` → `@user`, `http*` URLs → `http`. Originally a cardiffnlp model-card requirement; under D8 retained for LLM token-bloat reduction.
   - Daily char-budget circuit breaker (`SENTIMENT_DAILY_CHAR_BUDGET`, default ~200k) prevents quota overrun (D1, F1).
 - **Scope:** `lib/api/sentiment.ts`, `app/api/sentiment/route.ts`, `lib/types.ts` (`Sentiment` type), `lib/constants.ts` (`CACHE_KEYS.sentiment` 15-min TTL).
 - **Source:** `arch/precious-leaping-wren.md` (Context > What it delivers, item 1)
@@ -85,12 +85,12 @@ Total: 6 categories, 10 requirements.
 ### CRON
 
 #### REQ-cron-three-tier-dag
-- **Description:** Restructure `app/api/cron/refresh/route.ts` as a 3-tier sequenced DAG (Tier 1: external fetches ‖, Tier 2: trending tally writes ZSETs, Tier 3: hero ‖ alerts ‖ sentiment). Each tier `Promise.allSettled`. Export `maxDuration = 30`.
+- **Description:** Restructure `app/api/cron/refresh/route.ts` as a 3-tier sequenced DAG (Tier 1: external fetches ‖, Tier 2: trending tally writes ZSETs, Tier 3: hero ‖ alerts ‖ sentiment). Each tier `Promise.allSettled`. ~~Export `maxDuration = 30`.~~ **D9 amendment 2026-05-13:** Export `maxDuration = 60` to accommodate D8's LLM-judge sentiment leg (35s timeout).
 - **Acceptance:**
   - All three new Tier-3 legs (sentiment, hero promoter, ranked trending) wired in.
   - Failure of any leg does not block siblings (existing pattern preserved).
-  - `export const maxDuration = 30` present.
-  - Cron completes well under 30s under normal load (~12s expected).
+  - ~~`export const maxDuration = 30` present.~~ Replaced by `export const maxDuration = 60` (D9).
+  - ~~Cron completes well under 30s under normal load (~12s expected).~~ Superseded — under D8 the sentiment leg dominates wall-time; expected range is now 15–45s.
 - **Scope:** `app/api/cron/refresh/route.ts`.
 - **Source:** `arch/precious-leaping-wren.md` (D4; F3)
 
