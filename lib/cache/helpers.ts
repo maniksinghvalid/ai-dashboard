@@ -27,6 +27,9 @@ export async function cacheSet<T>(
 ): Promise<void> {
   // Don't overwrite good cached data with empty results unless explicitly allowed
   if (Array.isArray(data) && data.length === 0 && !options?.allowEmpty) {
+    console.warn(
+      `[cache] skipping empty write to "${key}" (pass allowEmpty to override)`,
+    );
     return;
   }
 
