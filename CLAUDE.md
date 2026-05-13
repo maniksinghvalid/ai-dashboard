@@ -50,6 +50,8 @@ AIP-Dash (AI Pulse Live Dashboard) — a real-time AI industry dashboard that ag
 - **SWR defaults**: `useApiData` polls every 60s, dedupes within 10s, disables `revalidateOnFocus`, retries 3 times. New hooks fetching `/api/*` data should reuse `useApiData` rather than calling `useSWR` directly — override the `refreshInterval` arg if a widget genuinely needs a different cadence.
 - **Tailwind color overrides**: `green`, `red`, `amber` in `tailwind.config.ts` override the full Tailwind scale (only DEFAULT/400/500 defined). Do not use shades like `green-100` or `red-600` — they don't exist. If the full palette is needed, namespace as `brand-green` etc.
 - **New widgets**: Follow the existing pattern — accept `{ data, stale, isLoading, error }` props, use `WidgetCard` with `icon`/`iconBg`/`title`/`badge`, handle loading/error/empty states, wrap in `WidgetErrorBoundary` in `DashboardShell`.
+- **Cron summary truthfulness**: `summary: "ok"` in `/api/cron/refresh` only means the fetcher didn't throw — it does NOT mean cache was written. Empty-array results pass `Promise.allSettled` as fulfilled, then `cacheSet`'s empty-array guard silently skips the write. Grep runtime logs for `[cache] skipping empty write` and `[<source>] ... rejected|Non-200` to detect dead upstreams cascading into 503s.
+- **YouTube cache-skip blind spot**: `fetchYouTubeVideos` returns early at `lib/api/youtube.ts:41-43` when no video IDs were collected, *before* reaching `cacheSet`. The `[cache] skipping empty write to "yt:latest"` warn therefore never fires even when all 8 playlist fetches were rejected — confirm YouTube health via `[youtube] playlist fetch rejected` warn instead.
 
 ## Environment Variables
 
@@ -84,6 +86,10 @@ Practical implication: the QStash 15-min POST is the only path that actually ref
 **Security trade-off for QStash query-param transport**: the bypass secret will appear in Vercel function logs, Upstash request history, and Sentry breadcrumbs (Sentry captures `request.url` by default). Defense in depth still applies — leaking the bypass alone does NOT authorize a refresh; the QStash signature on the request body (POST) and `CRON_SECRET` (GET) gate the actual work at the application layer. The bypass only gets past Vercel's edge protection. Rotate the bypass periodically: regenerate in Vercel dashboard → redeploy (so the new value is baked in) → update the QStash schedule URL with the new secret.
 
 When rotating the bypass secret in Vercel, **redeploy** — the secret is baked into deployments at build time, so old deployments keep the old value and will 401 for new callers.
+
+**Stable QStash target**: point the QStash schedule at the develop branch alias `https://ai-dashboard-git-develop-maniks-projects-b7b7b384.vercel.app/api/cron/refresh?x-vercel-protection-bypass=<secret>` — Vercel auto-points this at the latest successful develop deploy, so the schedule survives redeploys. Pinning to a deployment-hash URL strands silently on every new build.
+
+**Diagnostic — what kind of 401**: HTML body with "Authentication Required" = Vercel edge rejected (missing/wrong bypass). JSON body `{"error":"Unauthorized"}` = route's own auth check (you got past the edge — good signal).
 
 ## Local-only directories
 
