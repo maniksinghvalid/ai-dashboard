@@ -55,5 +55,3 @@ export const CACHE_MAX_AGE = {
 } as const;
 
 export const APIFY_ACTOR_ID = "trudax/reddit-scraper-lite";
-
-export const REDDIT_FLAIR_ALLOWLIST = ["Paper", "News", "Discussion"];

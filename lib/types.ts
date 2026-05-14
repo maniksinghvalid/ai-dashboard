@@ -15,9 +15,6 @@ export interface RedditPost {
   title: string;
   author: string;
   subreddit: string;
-  score: number;
-  numComments: number;
-  flair: string | null;
   url: string;
   createdAt: string;
 }

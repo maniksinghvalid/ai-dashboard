@@ -1,7 +1,7 @@
 import { getRedis } from "@/lib/cache/redis";
 import type { CachedData } from "@/lib/types";
 
-const SAFETY_TTL_SECONDS = 86400; // 24 hours
+const SAFETY_TTL_SECONDS = 14400; // 4 hours
 
 export async function cacheGet<T>(
   key: string,

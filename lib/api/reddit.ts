@@ -1,65 +1,55 @@
+import RSSParser from "rss-parser";
 import type { RedditPost } from "@/lib/types";
-import { SUBREDDITS, CACHE_KEYS, REDDIT_FLAIR_ALLOWLIST } from "@/lib/constants";
+import { SUBREDDITS, CACHE_KEYS } from "@/lib/constants";
 import { cacheSet } from "@/lib/cache/helpers";
+
+// Reddit's anonymous JSON API (www.reddit.com/r/*/hot.json) is 403-blocked from
+// datacenter IPs (Vercel functions). The .rss (Atom) feed is a separate
+// syndication path and is the chosen replacement (see 03-05-PLAN.md).
+//
+// Atom carries title / link / author / timestamp only — it does NOT carry score,
+// comment count, or structured flair. So the prior NSFW / stickied / flair-allowlist
+// filtering retired with this switch; RSS has no fields to filter on. Acceptable
+// because all five configured subreddits are SFW. A stickied thread may now appear
+// in the feed — a minor, tolerated cosmetic difference.
 
 const DEFAULT_USER_AGENT =
   "aip-dash/1.0 (https://github.com/maniksinghvalid/ai-dashboard)";
 const USER_AGENT = process.env.REDDIT_USER_AGENT || DEFAULT_USER_AGENT;
+// Best-effort on the .rss path — Reddit's RSS feeds cap around 25 entries and
+// may ignore ?limit entirely (unlike the JSON API, where it was authoritative).
 const PER_SUBREDDIT_LIMIT = 25;
 
-interface RedditJsonChild {
-  id: string;
-  title: string;
-  author: string;
-  subreddit: string;
-  score: number;
-  num_comments: number;
-  link_flair_text: string | null;
-  permalink: string;
-  url: string;
-  created_utc: number;
-  stickied: boolean;
-  over_18: boolean;
+// rss-parser's parsed Atom item — only the fields this normalizer reads.
+interface AtomItem {
+  id?: string;
+  title?: string;
+  link?: string;
+  author?: string;
+  isoDate?: string;
+  pubDate?: string;
 }
 
-interface RedditJsonResponse {
-  data?: {
-    children?: Array<{ kind: string; data: RedditJsonChild }>;
-  };
-}
-
-export function normalizeRedditJsonPost(raw: RedditJsonChild): RedditPost {
-  const flair =
-    raw.link_flair_text && raw.link_flair_text.length > 0
-      ? raw.link_flair_text
-      : null;
-
+export function normalizeRedditAtomEntry(
+  item: AtomItem,
+  subreddit: string,
+): RedditPost {
+  // Reddit's Atom <id> is "t3_xxxxx" — strip the t3_ type prefix for a clean id.
+  const rawId = item.id ?? "";
+  const id = rawId.replace(/^t3_/, "") || rawId;
+  // Atom <author><name> is "/u/username" — strip the /u/ prefix.
+  const author = (item.author ?? "").replace(/^\/u\//, "") || "unknown";
   return {
-    id: raw.id,
-    title: raw.title,
-    author: raw.author,
-    subreddit: raw.subreddit,
-    score: raw.score,
-    numComments: raw.num_comments,
-    flair,
-    // Reddit's `url` is the external link for link-posts and the discussion
-    // URL for self-posts — matches what the Apify path returned. Fall back to
-    // the constructed permalink URL if `url` is somehow absent.
-    url: raw.url || `https://www.reddit.com${raw.permalink}`,
-    createdAt: new Date(raw.created_utc * 1000).toISOString(),
+    id,
+    title: item.title ?? "Untitled",
+    author,
+    subreddit,
+    // Atom <link> is the Reddit comments permalink. Unlike the old JSON path,
+    // RSS does not expose the external link-post URL — the permalink is what the
+    // feed reliably provides.
+    url: item.link ?? `https://www.reddit.com/r/${subreddit}/`,
+    createdAt: item.isoDate ?? item.pubDate ?? new Date().toISOString(),
   };
-}
-
-export function isPostKeepable(raw: RedditJsonChild): boolean {
-  return !raw.stickied && !raw.over_18;
-}
-
-function isFlairAllowed(post: RedditPost): boolean {
-  if (!post.flair) return true;
-  const lower = post.flair.toLowerCase();
-  return REDDIT_FLAIR_ALLOWLIST.some((allowed) =>
-    lower.includes(allowed.toLowerCase()),
-  );
 }
 
 const RETRY_STATUS = new Set([429, 503]);
@@ -69,11 +59,14 @@ function jitterMs(): number {
 }
 
 async function fetchOnce(sub: string): Promise<Response> {
-  const url = `https://www.reddit.com/r/${sub}/hot.json?limit=${PER_SUBREDDIT_LIMIT}`;
+  const url = `https://www.reddit.com/r/${sub}/hot.rss?limit=${PER_SUBREDDIT_LIMIT}`;
   return fetch(url, { headers: { "User-Agent": USER_AGENT } });
 }
 
-async function fetchSubreddit(sub: string): Promise<RedditPost[]> {
+async function fetchSubreddit(
+  parser: RSSParser,
+  sub: string,
+): Promise<RedditPost[]> {
   let res = await fetchOnce(sub);
 
   if (RETRY_STATUS.has(res.status)) {
@@ -92,20 +85,19 @@ async function fetchSubreddit(sub: string): Promise<RedditPost[]> {
     return [];
   }
 
-  const json = (await res.json()) as RedditJsonResponse;
-  const children = json.data?.children ?? [];
+  const xml = await res.text();
+  const feed = await parser.parseString(xml);
 
-  return children
-    .filter((c) => c.kind === "t3")
-    .map((c) => c.data)
-    .filter(isPostKeepable)
-    .map(normalizeRedditJsonPost)
-    .filter(isFlairAllowed);
+  return (feed.items ?? []).map((item) =>
+    normalizeRedditAtomEntry(item as AtomItem, sub),
+  );
 }
 
 export async function fetchRedditPosts(): Promise<RedditPost[]> {
+  const parser = new RSSParser();
+
   const results = await Promise.allSettled(
-    SUBREDDITS.map((sub) => fetchSubreddit(sub)),
+    SUBREDDITS.map((sub) => fetchSubreddit(parser, sub)),
   );
 
   const posts: RedditPost[] = [];

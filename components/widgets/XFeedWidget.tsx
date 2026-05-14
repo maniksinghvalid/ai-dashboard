@@ -90,7 +90,7 @@ export function XFeedWidget({
         <WidgetSkeleton lines={4} />
       ) : error ? (
         <p className="py-6 text-center text-[11px] text-muted">
-          Failed to load — retrying...
+          Feed temporarily unavailable
         </p>
       ) : !tweets || tweets.length === 0 ? (
         <p className="py-6 text-center text-[11px] text-muted">
