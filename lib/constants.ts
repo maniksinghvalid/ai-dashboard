@@ -45,6 +45,7 @@ export const CACHE_KEYS = {
   trendingRanked: "trending:ranked",
   hero: "hero:cross-platform",
   spikes: "alerts:spikes",
+  cronLock: "cron:refresh:lock",
 } as const;
 
 export const CACHE_MAX_AGE = {
