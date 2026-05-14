@@ -134,6 +134,29 @@ describe("fetchAndCacheSentiment failure signalling", () => {
       else delete process.env.TOGETHER_API_KEY;
     }
   });
+
+  it("throws the generic (non-401) error for other non-2xx responses", async () => {
+    // Locks the 401 branch apart from the generic !res.ok throw — a refactor
+    // that collapsed them would lose the distinctive 401 message and fail here.
+    const prev = process.env.TOGETHER_API_KEY;
+    const originalFetch = global.fetch;
+    process.env.TOGETHER_API_KEY = "test-key";
+    mockRedis.eval.mockResolvedValueOnce(1);
+    global.fetch = vi.fn().mockResolvedValue({
+      status: 500,
+      ok: false,
+      statusText: "Internal Server Error",
+    } as Response);
+    try {
+      await expect(
+        fetchAndCacheSentiment([{ text: "some post title" }]),
+      ).rejects.toThrow(/Together AI returned 500/);
+    } finally {
+      global.fetch = originalFetch;
+      if (prev !== undefined) process.env.TOGETHER_API_KEY = prev;
+      else delete process.env.TOGETHER_API_KEY;
+    }
+  });
 });
 
 describe("checkAndConsumeBudget — atomic daily char budget guard", () => {
