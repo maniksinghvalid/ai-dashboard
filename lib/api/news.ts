@@ -3,11 +3,24 @@ import type { NewsItem } from '@/lib/types';
 import { RSS_FEEDS, CACHE_KEYS } from '@/lib/constants';
 import { cacheSet } from '@/lib/cache/helpers';
 
+// Fetch feed XML via native fetch (WHATWG URL) instead of rss-parser's
+// parseURL, which relies on the deprecated url.parse() under the hood.
+async function parseFeed(parser: RSSParser, url: string) {
+  const res = await fetch(url, {
+    headers: { "user-agent": "aip-dash/1.0 (+https://github.com/maniksinghvalid/ai-dashboard)" },
+  });
+  if (!res.ok) {
+    throw new Error(`feed fetch failed: ${res.status} ${url}`);
+  }
+  const xml = await res.text();
+  return parser.parseString(xml);
+}
+
 export async function fetchNews(): Promise<NewsItem[]> {
   const parser = new RSSParser();
 
   const results = await Promise.allSettled(
-    RSS_FEEDS.map((feed) => parser.parseURL(feed.url))
+    RSS_FEEDS.map((feed) => parseFeed(parser, feed.url))
   );
 
   const items: NewsItem[] = [];
