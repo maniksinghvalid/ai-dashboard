@@ -1,6 +1,6 @@
 const DATA_SOURCES = [
   { color: "var(--yt)", label: "YouTube Data API v3" },
-  { color: "var(--reddit)", label: "Reddit — Apify MCP", extra: "(trudax/reddit-scraper-lite)" },
+  { color: "var(--reddit)", label: "Reddit RSS Atom Feed" },
   { color: "#e7e7f0", label: "X API Basic" },
   { color: "#0ea5e9", label: "RSS News Feeds" },
 ];
@@ -22,11 +22,6 @@ export function DataSourcesFooter() {
               style={{ background: source.color }}
             />
             {source.label}
-            {source.extra && (
-              <span className="font-[family-name:var(--font-space-mono)] text-[9px] text-[#ff8800]">
-                {source.extra}
-              </span>
-            )}
           </span>
         ))}
       </div>
