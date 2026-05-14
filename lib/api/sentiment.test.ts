@@ -1,9 +1,26 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("@/lib/cache/redis", () => ({
+  getRedis: vi.fn(),
+}));
+
 import {
   preprocessText,
   aggregateSentiment,
   fetchAndCacheSentiment,
+  checkAndConsumeBudget,
 } from "@/lib/api/sentiment";
+import { getRedis } from "@/lib/cache/redis";
+
+const mockRedis = {
+  eval: vi.fn(),
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(getRedis).mockReturnValue(mockRedis as any);
+});
 
 describe("preprocessText (noise reduction for the LLM judge)", () => {
   it("replaces @handle with literal @user and URL with literal http", () => {
@@ -81,5 +98,46 @@ describe("fetchAndCacheSentiment failure signalling", () => {
     } finally {
       if (prev !== undefined) process.env.TOGETHER_API_KEY = prev;
     }
+  });
+});
+
+describe("checkAndConsumeBudget — atomic daily char budget guard", () => {
+  // The check-and-consume must be a single atomic Redis operation: two
+  // concurrent runs must not both pass the guard and together overspend the
+  // daily char budget. We assert the true/false contract — the guard resolves
+  // true exactly when the atomic op reports "consumed", false when "rejected".
+  it("resolves true for a single consumer that is under budget", async () => {
+    mockRedis.eval.mockResolvedValueOnce(1);
+    await expect(checkAndConsumeBudget(1000)).resolves.toBe(true);
+  });
+
+  it("resolves false when the atomic op rejects (would exceed budget)", async () => {
+    mockRedis.eval.mockResolvedValueOnce(0);
+    await expect(checkAndConsumeBudget(1000)).resolves.toBe(false);
+  });
+
+  it("rejects the second of two concurrent consumers near the limit", async () => {
+    // First consumer consumes the remaining budget atomically (1), the second
+    // — racing on the same key — is rejected (0). Only the first passes.
+    mockRedis.eval.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+
+    const [first, second] = await Promise.all([
+      checkAndConsumeBudget(1000),
+      checkAndConsumeBudget(1000),
+    ]);
+
+    expect(first).toBe(true);
+    expect(second).toBe(false);
+  });
+
+  it("fails closed when eval resolves anything other than the integer 1", async () => {
+    // The guard branches on `result === 1` — a strict, fail-closed coercion.
+    // A null (Lua boolean leak) or a string "1" (transport quirk) must NOT be
+    // read as "consumed". This locks that contract against future refactors.
+    mockRedis.eval.mockResolvedValueOnce(null);
+    await expect(checkAndConsumeBudget(1000)).resolves.toBe(false);
+
+    mockRedis.eval.mockResolvedValueOnce("1");
+    await expect(checkAndConsumeBudget(1000)).resolves.toBe(false);
   });
 });
