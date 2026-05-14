@@ -8,14 +8,18 @@ export const YOUTUBE_CHANNELS = [
 
 // `aiFilter: true` subreddits are general-purpose, so their posts are
 // keyword-filtered for AI relevance in lib/api/reddit.ts before caching.
+export type SubredditConfig = { slug: string; aiFilter?: boolean };
+
 export const SUBREDDITS = [
   { slug: "MachineLearning" },
   { slug: "LocalLLaMA" },
   { slug: "artificial" },
   { slug: "singularity" },
   { slug: "programming", aiFilter: true },
-] as const;
+] as const satisfies readonly SubredditConfig[];
 
+// Numeric X user IDs (the X API v2 /2/users/:id/tweets path needs IDs, not
+// handles). Resolved + name-verified via api.fxtwitter.com, 2026-05-14.
 export const TWITTER_USERS = [
   // Core research & pioneers
   { handle: "karpathy", userId: "33836629" },

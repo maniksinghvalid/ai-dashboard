@@ -228,13 +228,19 @@ describe("fetchRedditPosts", () => {
   // ── aiFilter (config-driven AI-keyword title filter) ─────────────────────
   // r/programming is the sole SUBREDDITS entry with aiFilter:true.
 
-  it("drops aiFilter-subreddit posts whose title has no AI keyword", async () => {
-    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+  // Fetch mock: r/programming returns one post titled `programmingTitle`; every
+  // other subreddit returns one post with an AI-keyword title — so only the
+  // aiFilter branch is under test, the other 4 subs always contribute a post.
+  function aiFilterFetchMock(programmingTitle: string) {
+    return vi.fn().mockImplementation(async (url: string) => {
       const sub = url.match(/\/r\/(\w+)\//)?.[1] ?? "unknown";
-      const title =
-        sub === "programming" ? "weekly career advice thread" : `${sub} AI post`;
+      const title = sub === "programming" ? programmingTitle : `${sub} AI post`;
       return okResponse(atomFeed([{ id: `t3_${sub}1`, title }]));
     });
+  }
+
+  it("drops aiFilter-subreddit posts whose title has no AI keyword", async () => {
+    global.fetch = aiFilterFetchMock("weekly career advice thread");
 
     const posts = await fetchRedditPosts();
 
@@ -244,19 +250,68 @@ describe("fetchRedditPosts", () => {
   });
 
   it("keeps aiFilter-subreddit posts with an AI keyword (case-insensitive)", async () => {
-    global.fetch = vi.fn().mockImplementation(async (url: string) => {
-      const sub = url.match(/\/r\/(\w+)\//)?.[1] ?? "unknown";
-      const title =
-        sub === "programming"
-          ? "Shipping a local LLM with GPT-style tooling"
-          : `${sub} AI post`;
-      return okResponse(atomFeed([{ id: `t3_${sub}1`, title }]));
-    });
+    global.fetch = aiFilterFetchMock(
+      "Shipping a local LLM with GPT-style tooling",
+    );
 
     const posts = await fetchRedditPosts();
 
     expect(posts.length).toBe(5);
     expect(posts.some((p) => p.subreddit === "programming")).toBe(true);
+  });
+
+  it.each(["llm", "ai", "gpt", "claude", "model", "neural", "transformer"])(
+    "keeps an aiFilter-subreddit post when the title contains %s",
+    async (keyword) => {
+      global.fetch = aiFilterFetchMock(`a deep dive on ${keyword} today`);
+
+      const posts = await fetchRedditPosts();
+
+      expect(posts.some((p) => p.subreddit === "programming")).toBe(true);
+    },
+  );
+
+  it("matches plural keyword forms (LLMs, GPTs, models)", async () => {
+    global.fetch = aiFilterFetchMock("Top 5 LLMs compared");
+
+    const posts = await fetchRedditPosts();
+
+    expect(posts.some((p) => p.subreddit === "programming")).toBe(true);
+  });
+
+  it("respects word boundaries — substring-only matches are dropped", async () => {
+    // "rain" and "detail" contain the substring "ai" but not as a whole word.
+    global.fetch = aiFilterFetchMock("Avoiding rain delays in detail");
+
+    const posts = await fetchRedditPosts();
+
+    expect(posts.some((p) => p.subreddit === "programming")).toBe(false);
+  });
+
+  it("filters a mixed feed — keeps AI titles, drops the rest", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      const sub = url.match(/\/r\/(\w+)\//)?.[1] ?? "unknown";
+      if (sub === "programming") {
+        return okResponse(
+          atomFeed([
+            { id: "t3_p1", title: "New transformer paper" },
+            { id: "t3_p2", title: "Garden hose review" },
+            { id: "t3_p3", title: "GPT prompt tips" },
+          ]),
+        );
+      }
+      return okResponse(
+        atomFeed([{ id: `t3_${sub}1`, title: `${sub} AI post` }]),
+      );
+    });
+
+    const posts = await fetchRedditPosts();
+
+    const programmingIds = posts
+      .filter((p) => p.subreddit === "programming")
+      .map((p) => p.id)
+      .sort();
+    expect(programmingIds).toEqual(["p1", "p3"]);
   });
 
   it("does not filter subreddits without the aiFilter flag", async () => {

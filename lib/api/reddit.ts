@@ -1,6 +1,6 @@
 import RSSParser from "rss-parser";
 import type { RedditPost } from "@/lib/types";
-import { SUBREDDITS, CACHE_KEYS } from "@/lib/constants";
+import { SUBREDDITS, CACHE_KEYS, type SubredditConfig } from "@/lib/constants";
 import { cacheSet } from "@/lib/cache/helpers";
 
 // Reddit's anonymous JSON API (www.reddit.com/r/*/hot.json) is 403-blocked from
@@ -22,10 +22,10 @@ const PER_SUBREDDIT_LIMIT = 25;
 
 // Title-based AI-relevance filter for general-purpose subreddits (those with
 // `aiFilter: true` in SUBREDDITS — e.g. r/programming). Word-boundary match so
-// "ai" hits "AI" but not "rain"/"detail". Applied per-subreddit before caching.
-const AI_KEYWORD_RE = /\b(?:llm|ai|gpt|claude|model|neural|transformer)\b/i;
-
-type SubredditConfig = { slug: string; aiFilter?: boolean };
+// "ai" hits "AI" but not "rain"/"detail"; the optional `s?` catches plurals
+// like "LLMs"/"GPTs"/"models". Applied per-subreddit before caching.
+const AI_KEYWORD_RE =
+  /\b(?:llms?|ai|gpts?|claude|models?|neural|transformers?)\b/i;
 
 // rss-parser's parsed Atom item — only the fields this normalizer reads.
 interface AtomItem {
