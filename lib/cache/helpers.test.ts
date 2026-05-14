@@ -23,6 +23,15 @@ describe("cacheSet", () => {
     expect(mockRedis.set).toHaveBeenCalledTimes(1);
   });
 
+  it("writes with a 4h hard TTL (ex: 14400)", async () => {
+    await cacheSet("k", [{ x: 1 }]);
+    expect(mockRedis.set).toHaveBeenCalledWith(
+      "k",
+      expect.objectContaining({ data: [{ x: 1 }] }),
+      { ex: 14400 },
+    );
+  });
+
   it("returns false and skips the write when data is an empty array", async () => {
     const result = await cacheSet("k", []);
     expect(result).toBe(false);

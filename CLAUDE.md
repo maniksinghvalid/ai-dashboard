@@ -24,9 +24,9 @@ AIP-Dash (AI Pulse Live Dashboard) — a real-time AI industry dashboard that ag
 - **`app/api/health/route.ts`** — Redis health check (`GET /api/health`), uses `force-dynamic`
 - **`app/global-error.tsx`** — Sentry-integrated error boundary. Uses inline styles intentionally (Tailwind may not load during errors).
 - **`lib/cache/redis.ts`** — Upstash Redis client, lazy-initialized via `getRedis()` (not top-level) to avoid build-time env var validation errors
-- **`lib/cache/helpers.ts`** — `cacheGet()` / `cacheSet()` with application-level freshness checking and stale fallback
-- **`lib/api/`** — API client modules: `youtube.ts` (googleapis), `reddit.ts` (apify-client), `twitter.ts` (X API v2 fetch), `news.ts` (rss-parser), `trending.ts` (cross-platform keyword engine)
-- **`lib/types.ts`** — Shared types: `Video`, `RedditPost`, `Tweet`, `NewsItem`, `TrendingTopic`, `HeroStory`, `CachedData<T>`, `ApiResponse<T>`
+- **`lib/cache/helpers.ts`** — `cacheGet()` / `cacheSet()` with application-level freshness checking and stale fallback. `cacheSet` writes every key with a **4h hard TTL** (`SAFETY_TTL_SECONDS = 14400`, `ex`); when it expires, `cacheGet` returns null and the read routes return 503. The refresh cron (every 15 min) is what keeps keys alive — the 4h TTL is the backstop for a key whose source has stopped refreshing.
+- **`lib/api/`** — API client modules: `youtube.ts` (googleapis), `reddit.ts` (rss-parser — Reddit `.rss` Atom feed; the JSON API is datacenter-IP-blocked from Vercel), `twitter.ts` (X API v2 fetch), `news.ts` (rss-parser), `trending.ts` (cross-platform keyword engine)
+- **`lib/types.ts`** — Shared types: `Video`, `RedditPost` (RSS-sourced: `id`/`title`/`author`/`subreddit`/`url`/`createdAt` only — no score/comment-count/flair, the Atom feed doesn't carry them), `Tweet`, `NewsItem`, `TrendingTopic`, `HeroStory`, `CachedData<T>`, `ApiResponse<T>`
 - **`lib/constants.ts`** — Channel IDs, subreddits, Twitter users, RSS feeds, cache keys/TTLs
 - **`lib/utils/format.ts`** — Shared utilities: `formatRelativeTime()` — single source of truth for all relative time formatting across widgets
 - **`lib/hooks/use-dashboard.ts`** — `useDashboard()` hook: fetches all dashboard data sources via SWR, returns `{ youtube, reddit, twitter, news, trending, sentiment, hero }` each with `{ data, stale, isLoading, error }`
