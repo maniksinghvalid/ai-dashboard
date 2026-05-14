@@ -27,10 +27,10 @@ interface XApiResponse {
 
 const RETRY_STATUS = new Set([429, 503]);
 
-// X API v2 /2/users/:id/tweets allows 15 requests / 15-min window on app-auth.
-// With ~15 curated users that is the whole window, so fetch in sequential
-// batches rather than one wide burst — a transient failure then retries
-// without 15 simultaneous requests racing for the same quota.
+// Fetch users in sequential batches (not one wide burst) and allow one retry
+// per user on a transient 429/503 — resilience parity with the Reddit fetcher.
+// The X API budget measured ~10k requests/window in diagnostics, so this is
+// defensive hygiene against transient failures, not a rate-limit necessity.
 const BATCH_SIZE = 5;
 
 function jitterMs(): number {
