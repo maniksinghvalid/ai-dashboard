@@ -13,6 +13,7 @@ import { fetchAndCacheTrending, getAlertsRows } from "@/lib/api/trending";
 import { promoteHero } from "@/lib/api/hero";
 import { writeSpikeAlertsFromTrending } from "@/lib/api/alerts";
 import { fetchAndCacheSentiment } from "@/lib/api/sentiment";
+import { deriveSourceOutcome, type SourceOutcome } from "@/lib/cron/summary";
 import type { Video, RedditPost, Tweet } from "@/lib/types";
 
 function captureIfSentry(err: unknown, label: string) {
@@ -23,11 +24,24 @@ function captureIfSentry(err: unknown, label: string) {
 }
 
 async function refreshAllFeeds() {
-  const summary: Record<string, "ok" | "failed"> = {
-    youtube: "failed",
-    reddit: "failed",
-    twitter: "failed",
-    news: "failed",
+  // Tier 1 sources report a three-state outcome (written / skipped_empty /
+  // fetcher_threw) via deriveSourceOutcome. Tier 2/3 keep the binary ok/failed.
+  // The type encodes that Tier-boundary invariant so a future edit can't assign
+  // a Tier 1 outcome to a Tier 2/3 key (or vice versa).
+  const summary: {
+    youtube: SourceOutcome;
+    reddit: SourceOutcome;
+    twitter: SourceOutcome;
+    news: SourceOutcome;
+    trending: "ok" | "failed";
+    hero: "ok" | "failed";
+    alerts: "ok" | "failed";
+    sentiment: "ok" | "failed";
+  } = {
+    youtube: "fetcher_threw",
+    reddit: "fetcher_threw",
+    twitter: "fetcher_threw",
+    news: "fetcher_threw",
     trending: "failed",
     hero: "failed",
     alerts: "failed",
@@ -47,30 +61,29 @@ async function refreshAllFeeds() {
   let posts: RedditPost[] = [];
   let tweets: Tweet[] = [];
 
+  summary.youtube = deriveSourceOutcome(ytResult);
   if (ytResult.status === "fulfilled") {
     videos = ytResult.value;
-    summary.youtube = "ok";
   } else {
     captureIfSentry(ytResult.reason, "YouTube fetch");
   }
 
+  summary.reddit = deriveSourceOutcome(redditResult);
   if (redditResult.status === "fulfilled") {
     posts = redditResult.value;
-    summary.reddit = "ok";
   } else {
     captureIfSentry(redditResult.reason, "Reddit fetch");
   }
 
+  summary.twitter = deriveSourceOutcome(twitterResult);
   if (twitterResult.status === "fulfilled") {
     tweets = twitterResult.value;
-    summary.twitter = "ok";
   } else {
     captureIfSentry(twitterResult.reason, "Twitter fetch");
   }
 
-  if (newsResult.status === "fulfilled") {
-    summary.news = "ok";
-  } else {
+  summary.news = deriveSourceOutcome(newsResult);
+  if (newsResult.status === "rejected") {
     captureIfSentry(newsResult.reason, "News fetch");
   }
 
