@@ -19,7 +19,7 @@ AIP-Dash (AI Pulse Live Dashboard) — a real-time AI industry dashboard that ag
 
 - **Next.js 14 App Router** — flat `/app` directory (no `src/`), import alias `@/*`
 - **`app/layout.tsx`** — Root layout. Forces `<html className="dark">` (dark theme is always on) and loads DM Sans + Space Mono via `next/font/google` exposed as CSS vars `--font-dm-sans` / `--font-space-mono`.
-- **`app/api/cron/refresh/route.ts`** — Data refresh endpoint. `GET` requires `Authorization: Bearer $CRON_SECRET` (Vercel daily cron). `POST` accepts QStash signed requests (15-min intervals).
+- **`app/api/cron/refresh/route.ts`** — Data refresh endpoint. `GET` requires `Authorization: Bearer $CRON_SECRET` (manual trigger; also reachable by a Vercel cron if re-added). `POST` accepts QStash signed requests (15-min intervals) — the sole working refresh path. `refreshAllFeeds()` is guarded by a distributed Redis lock (`SET NX EX 90`) so a concurrent QStash retry returns early instead of double-running the DAG.
 - **`app/api/youtube|reddit|x|trending|news/route.ts`** — Read-only cache endpoints, return cached data with stale fallback (503 if no data)
 - **`app/api/health/route.ts`** — Redis health check (`GET /api/health`), uses `force-dynamic`
 - **`app/global-error.tsx`** — Sentry-integrated error boundary. Uses inline styles intentionally (Tailwind may not load during errors).
