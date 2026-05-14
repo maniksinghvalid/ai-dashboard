@@ -9,7 +9,7 @@ against the repo's CLAUDE.md.
 ## Project
 
 - **Name**: AIP-Dash — AI Pulse Live Dashboard
-- **Stack**: Next.js 14 App Router + TypeScript; Upstash Redis caching; Sentry instrumentation; Vercel cron + Upstash QStash for refresh cadence
+- **Stack**: Next.js 14 App Router + TypeScript; Upstash Redis caching; Sentry instrumentation; Upstash QStash 15-min POST for refresh cadence (Vercel daily cron removed in Phase 3)
 - **Theme**: dark, always on (no toggle); DM Sans + Space Mono fonts
 - **Source**: arch/precious-leaping-wren.md + project CLAUDE.md
 

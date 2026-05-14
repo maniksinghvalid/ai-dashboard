@@ -173,7 +173,7 @@ async function refreshAllFeeds() {
   }
 }
 
-// GET — Vercel cron (daily) + manual trigger with Bearer token
+// GET — manual trigger with Bearer token (also reachable by a Vercel cron if re-added)
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
 
