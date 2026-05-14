@@ -23,6 +23,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: SCRUM-38 Implementation** - Ship the sentiment engine, true velocity trending, cross-platform hero, spike alerts, Vitest, and the cron DAG / dashboard wiring that activates them **(shipped — commits `e28ca7e` "feat(01): ship SCRUM-38 intelligence layer" + `fa5c49f` review fixes + `dd9b6dd` "fix(sentiment): repair Together AI integration and cron summary truthfulness"; retroactively marked complete 2026-05-13 after /superpowers:requesting-code-review validation — see Phase 1 close-out note below)**
 - [x] **Phase 2: Reddit Free Fallback** - Replace the failing Apify-based Reddit scraper with Reddit's free public JSON API; restore Reddit data flow into the cron DAG and unblock cross-platform hero promotion **(shipped 2026-05-13 — commits `66b04aa` + `b404c97`; plan + summary backfilled retroactively via /gsd-import)**
+- [ ] **Phase 3: Caching & Refresh Hardening** - Close the four compounding failure modes surfaced by the 2026-05-13 system-architect review: truthful cache-write reporting (`summary: "ok"` currently lies — only means the fetcher resolved, not that Redis was written), a distributed cron lock (no protection against concurrent QStash-retry runs), an atomic sentiment budget check (non-atomic read-then-write double-spends quota), and removal of the dead Vercel daily cron (401s silently behind Deployment Protection — false-signal noise during incident response)
 
 ## Phase Details
 
@@ -104,15 +105,45 @@ Plans:
 
 **Execution evidence (retroactive)**: This phase was executed before the plan was imported into GSD form — the import is post-hoc planning around already-shipped code. Tasks 2 + 4 of the plan landed as commits `66b04aa` ("feat(reddit): add Reddit JSON normalizer with stickied + NSFW filter") and `b404c97` ("feat(reddit): replace Apify scraper with Reddit JSON API") on 2026-05-13. Task 5 sub-step A (local cron smoke) was re-verified during the import session — HTTP 200, 43 fresh Reddit posts, `cachedAt` within 1 minute, `stale: false`. Sub-steps B (production verify) and C (7-day tripwire) tracked via `TODOS.md` "Reddit OAuth tripwire — re-check on 2026-05-20".
 
+### Phase 3: Caching & Refresh Hardening
+**Goal**: Make the cron refresh path observably honest and concurrency-safe. After this phase a cron run that writes nothing is visibly distinct from one that succeeded, two overlapping QStash deliveries cannot corrupt ZSET windows or double-spend the sentiment budget, and the Vercel cron dashboard no longer shows false-green for an invocation that never reached the route.
+**Depends on**: Phase 1 (cron 3-tier DAG, sentiment engine, `cacheSet` helper, timeseries ZSETs) and Phase 2 (Reddit fetch path), both shipped. Operational hardening on shipped infrastructure — no new product surface.
+**Requirements**: None mapped (surfaced by the 2026-05-13 system-architect architecture review, not in the v1 requirements set). Source analysis: `/agents/system-architect` read-only review of `lib/cache/*`, `app/api/cron/refresh/route.ts`, and the `lib/api/*` fetchers.
+**Success Criteria** (what must be TRUE):
+  1. **`summary` reflects cache writes, not fetcher resolution (P1 — Critical):** `cacheSet` returns a boolean indicating whether a write actually occurred (false on the empty-array guard skip). `refreshAllFeeds` threads that signal so each source in the cron JSON reports a three-state outcome (e.g. `written` / `skipped_empty` / `fetcher_threw`) rather than the binary `ok`/`failed`. A cron run where every upstream returns an empty array no longer reports all-`ok`. The YouTube early-return path at `lib/api/youtube.ts:41-43` (returns `[]` before reaching `cacheSet`) is covered — its outcome surfaces as `skipped_empty`, not `ok`.
+  2. **Concurrent cron runs are prevented (P2 — High):** `refreshAllFeeds()` acquires a Redis lock via `SET <key> <val> NX EX <ttl>` with `ttl` strictly greater than `maxDuration` (60) — e.g. 90 — at entry, and a second invocation that fails to acquire returns early (HTTP 200, `{ status: "locked" }` or equivalent) without running any tier. The lock is released on normal completion and self-expires on crash/timeout. A unit test covers acquire-success, acquire-contended, and release.
+  3. **Sentiment budget check is atomic (P3 — High):** the daily-budget check-and-consume in `lib/api/sentiment.ts` (currently a non-atomic `redis.get` then `redis.incrby`) is replaced with an atomic operation (Lua script or a single pipelined check-and-increment) such that two concurrent runs cannot both pass the guard and together exceed `SENTIMENT_DAILY_CHAR_BUDGET`. A unit test demonstrates the atomic guard rejects the second concurrent consumer.
+  4. **Dead Vercel daily cron removed (P5 — Low, but false-signal risk):** the daily `crons` entry is removed from `vercel.json` (the file's `crons` array is empty or absent); `CLAUDE.md`'s Deployment section is updated to state QStash is the sole working refresh path and to explain why the Vercel cron was removed (it 401s at the edge under Deployment Protection before reaching the route, showing false-green in Vercel's cron dashboard).
+  5. **Tests green:** `npm test` exits 0 with new/updated cases for the `cacheSet` boolean contract, the cron lock helper, and the atomic sentiment budget guard; `npx tsc --noEmit && npm run lint` clean.
+**Plans**: 4 plans (see below — produced by `/gsd-plan-phase 3`)
+**UI hint**: no
+
+Plans:
+- [ ] 03-01-PLAN.md — P1: `cacheSet` returns a write boolean + pure `deriveSourceOutcome` helper; cron Tier 1 summary becomes three-state (written/skipped_empty/fetcher_threw); CLAUDE.md Key Patterns notes updated [SC-1, SC-5]
+- [ ] 03-02-PLAN.md — P2: `cron:refresh:lock` key + `lib/cache/lock.ts` (acquire/release, SET NX EX 90, value-checked Lua release); lock wraps `refreshAllFeeds()` so both GET/POST are covered, contended → HTTP 200 {status:"locked"} [SC-2, SC-5]
+- [ ] 03-03-PLAN.md — P3: atomic sentiment daily-budget check-and-consume via single `redis.eval` Lua script; concurrent-consumer guard tests; 401 Sentry capture + daily-key semantics preserved [SC-3, SC-5]
+- [ ] 03-04-PLAN.md — P4: remove dead daily `crons` entry from `vercel.json`; tighten CLAUDE.md Deployment prose (QStash sole refresh path, false-green explanation) [SC-4]
+
+**Wave structure** (for parallel execution):
+- **Wave 1** (independent — no inter-deps): 03-01 (P1), 03-03 (P3), 03-04 (P4)
+- **Wave 2** (depends on 03-01 — both modify `app/api/cron/refresh/route.ts`): 03-02 (P2)
+
+**Sequencing note**: 03-01 and 03-02 both touch `app/api/cron/refresh/route.ts` (03-01 rewrites the Tier 1 summary, 03-02 wraps `refreshAllFeeds()` in the lock) — 03-02 is Wave 2 so the two edits do not collide. 03-03 (`lib/api/sentiment.ts`) and 03-04 (`vercel.json` + `CLAUDE.md`) share no files with each other or with 03-01, so all three run in parallel in Wave 1. SC-5 (suite green) is satisfied incrementally — each code plan co-locates its tests; the phase gate is `npm test && npx tsc --noEmit && npm run lint` after Wave 2.
+
+**Scope notes:**
+- **In scope as planner discretion (mooted/folded by the above):** the ZSET member-collision precision bug (system-architect Finding 6) is mooted once SC-2's lock lands — no separate criterion. Reddit per-subreddit silent `[]` returns (Finding 9) are partially surfaced by SC-1's truthful reporting; deeper per-subreddit accounting is discretion, not a gate.
+- **Explicitly out of scope:** the `maxDuration` budget-collision risk (system-architect Finding 2 — sentiment's 35s timeout vs the 60s function ceiling) is a real High finding but is a *timeout-tuning / tier-restructure* concern, not a caching-correctness one. Carry it to a separate phase rather than bundling — it has a different blast radius and testing strategy. Stale-fallback masking permanent upstream death (Finding 4) is a UX/observability concern deferred to a monitoring phase.
+
 ## Progress
 
 **Execution Order:**
-Phase 1 → Phase 2. No decimals planned. Phase 2 imported post-roadmap from operational urgency (Apify failing in prod).
+Phase 1 → Phase 2 → Phase 3. No decimals planned. Phase 2 imported post-roadmap from operational urgency (Apify failing in prod). Phase 3 added 2026-05-13 from a system-architect architecture review.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. SCRUM-38 Implementation | 11/11 (retroactive) | **Complete with D8/D9 amendments** | 2026-05-13 (commits `e28ca7e` + `fa5c49f` + `dd9b6dd`) |
 | 2. Reddit Free Fallback | 1/1 (retroactive) | **Complete (retroactive import)** | 2026-05-13 (commits `66b04aa` + `b404c97`) |
+| 3. Caching & Refresh Hardening | 0/4 | **Planned** | — |
 
 ---
 

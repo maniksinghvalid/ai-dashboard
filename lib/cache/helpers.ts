@@ -24,13 +24,13 @@ export async function cacheSet<T>(
   key: string,
   data: T,
   options?: { allowEmpty?: boolean },
-): Promise<void> {
+): Promise<boolean> {
   // Don't overwrite good cached data with empty results unless explicitly allowed
   if (Array.isArray(data) && data.length === 0 && !options?.allowEmpty) {
     console.warn(
       `[cache] skipping empty write to "${key}" (pass allowEmpty to override)`,
     );
-    return;
+    return false;
   }
 
   const redis = getRedis();
@@ -39,4 +39,5 @@ export async function cacheSet<T>(
     fetchedAt: new Date().toISOString(),
   };
   await redis.set(key, wrapped, { ex: SAFETY_TTL_SECONDS });
+  return true;
 }

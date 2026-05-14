@@ -18,7 +18,7 @@ hero auto-promotion, spike alerts, and the project's first test infrastructure.
 
 - **Platform:** Vercel (Next.js 14 App Router) on Node.js 20
 - **Storage:** Upstash Redis (caching + time-series ZSETs); no SQL store
-- **Refresh cadence:** Vercel daily cron (`/api/cron/refresh` GET, bearer-auth via `CRON_SECRET`) + Upstash QStash 15-min POST (signed) — both hit the same handler
+- **Refresh cadence:** Upstash QStash 15-min POST (signed) is the sole working refresh path; the `/api/cron/refresh` GET handler also accepts bearer-auth (`CRON_SECRET`) manual triggers. The Vercel daily `crons` entry was removed (Phase 3) — under Deployment Protection it 401s at the edge before reaching the route
 - **Inference:** Together AI (sentiment) hosting `cardiffnlp/twitter-roberta-base-sentiment-latest`
 - **Instrumentation:** Sentry (client + server + edge), all guarded by `NEXT_PUBLIC_SENTRY_DSN` presence
 - **UI:** Dark-only theme (`<html className="dark">`), DM Sans + Space Mono, Tailwind with custom token overrides (see CLAUDE.md)
