@@ -4,6 +4,14 @@ vi.mock("@/lib/cache/redis", () => ({
   getRedis: vi.fn(),
 }));
 
+// sentiment.ts no longer imports Sentry — this mock is the regression guard:
+// if a future edit re-adds a Sentry.captureException to the 401 branch, the
+// "no self-capture" assertion below will fail.
+vi.mock("@sentry/nextjs", () => ({
+  captureException: vi.fn(),
+}));
+
+import * as Sentry from "@sentry/nextjs";
 import {
   preprocessText,
   aggregateSentiment,
@@ -97,6 +105,33 @@ describe("fetchAndCacheSentiment failure signalling", () => {
       ).rejects.toThrow(/TOGETHER_API_KEY/);
     } finally {
       if (prev !== undefined) process.env.TOGETHER_API_KEY = prev;
+    }
+  });
+
+  it("throws the distinctive 401 error when Together AI returns 401", async () => {
+    // SCRUM-47: a rotated/expired key → Together AI 401. The 401 branch must
+    // throw the distinctive message (so it's its own Sentry issue via the
+    // cron's single capture point) and must NOT self-capture to Sentry.
+    const prev = process.env.TOGETHER_API_KEY;
+    const originalFetch = global.fetch;
+    process.env.TOGETHER_API_KEY = "test-key";
+    mockRedis.eval.mockResolvedValueOnce(1); // budget guard passes → reaches fetch
+    global.fetch = vi.fn().mockResolvedValue({
+      status: 401,
+      ok: false,
+      statusText: "Unauthorized",
+    } as Response);
+    try {
+      await expect(
+        fetchAndCacheSentiment([{ text: "some post title" }]),
+      ).rejects.toThrow(/Together AI 401.*TOGETHER_API_KEY/);
+      // SCRUM-47 regression guard: the 401 branch must NOT self-capture to
+      // Sentry — the cron's captureIfSentry is the single capture point.
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    } finally {
+      global.fetch = originalFetch;
+      if (prev !== undefined) process.env.TOGETHER_API_KEY = prev;
+      else delete process.env.TOGETHER_API_KEY;
     }
   });
 });
