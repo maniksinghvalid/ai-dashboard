@@ -59,7 +59,9 @@ export function RedditWidget({
       ) : (
         <div>
           {posts.slice(0, 3).map((post) => (
-            <PostRow key={post.id} post={post} />
+            // post.url always has a value (normalizer falls back), so it's a
+            // safe key even in the unlikely event an Atom entry had no <id>.
+            <PostRow key={post.id || post.url} post={post} />
           ))}
         </div>
       )}

@@ -30,9 +30,11 @@ Then `npm uninstall apify-client && npm run build && npm test` and commit.
 
 **Source:** `/plan-eng-review` of `arch/reddit-free-fallback-plan.md` (2026-05-13), D4 resolution
 
+**Status (2026-05-14):** 03-05 **changed** the `RedditPost.url` semantic — the `.rss` Atom feed only exposes the Reddit comments permalink, so `url` is now *always* the permalink (no external link-post URL). `lib/api/hero.ts:74` (`link: matchingNews?.link ?? matchingPost?.url ?? ...`) was reviewed during the 03-05 code review: a Reddit-backed hero CTA now points at the Reddit thread instead of the source article — **accepted**, since `matchingNews?.link` is tried first and a permalink is a reasonable destination. The remaining `components/` audit below is still worth doing for label/icon assumptions.
+
 **What:** Verify no component in `components/` treats `RedditPost.url` as a Reddit-only URL.
 
-**Why:** The Reddit-free-fallback plan preserves the Apify semantic for `RedditPost.url` (external link for link-posts, Reddit URL for self-posts). This was chosen to *avoid* a regression but the assumption wasn't verified against the frontend. A 15-min audit closes the loop.
+**Why:** The Reddit-free-fallback plan preserved the Apify semantic for `RedditPost.url` (external link for link-posts, Reddit URL for self-posts); 03-05's `.rss` switch collapsed it to permalink-only. Either way the frontend assumption was never verified. A 15-min audit closes the loop.
 
 **How to do it:**
 1. `grep -rn 'post\.url\|p\.url\|\.url ' components/` — find all `url` accesses on Reddit-shaped data.

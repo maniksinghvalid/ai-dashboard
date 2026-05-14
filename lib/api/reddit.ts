@@ -16,6 +16,8 @@ import { cacheSet } from "@/lib/cache/helpers";
 const DEFAULT_USER_AGENT =
   "aip-dash/1.0 (https://github.com/maniksinghvalid/ai-dashboard)";
 const USER_AGENT = process.env.REDDIT_USER_AGENT || DEFAULT_USER_AGENT;
+// Best-effort on the .rss path — Reddit's RSS feeds cap around 25 entries and
+// may ignore ?limit entirely (unlike the JSON API, where it was authoritative).
 const PER_SUBREDDIT_LIMIT = 25;
 
 // rss-parser's parsed Atom item — only the fields this normalizer reads.

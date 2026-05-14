@@ -5,10 +5,16 @@ import { normalizeRedditAtomEntry, fetchRedditPosts } from "./reddit";
 // exercise its real fetch → rss-parser → normalize pipeline against a mocked
 // global.fetch that returns Reddit-shaped Atom XML.
 vi.mock("@/lib/cache/helpers", () => ({
-  cacheSet: vi.fn().mockResolvedValue(undefined),
+  cacheSet: vi.fn().mockResolvedValue(true),
 }));
 
 // ── Atom fixture builders ──────────────────────────────────────────────────
+// The <entry> structure here is verbatim-shaped from a real Reddit hot.rss
+// response (captured from www.reddit.com/r/LocalLLaMA/hot.rss, 2026-05):
+// <author> carries BOTH <name> and <uri>, plus <category>/<content>/
+// <media:thumbnail>/<published>. This matters — it pins how rss-parser
+// actually parses Reddit's <author> (→ a plain string on item.author), so
+// these integration tests exercise the real parse path, not a simplified shape.
 function atomFeed(
   entries: Array<{
     id?: string;
@@ -19,21 +25,16 @@ function atomFeed(
   }>,
 ): string {
   const items = entries
-    .map(
-      (e) => `  <entry>
-    <author><name>${e.author ?? "/u/someuser"}</name></author>
-    <id>${e.id ?? "t3_default"}</id>
-    <link href="${e.href ?? "https://www.reddit.com/r/x/comments/default/t/"}" />
-    <updated>${e.updated ?? "2026-05-14T10:00:00+00:00"}</updated>
-    <title>${e.title ?? "Default title"}</title>
-  </entry>`,
-    )
-    .join("\n");
+    .map((e) => {
+      const author = e.author ?? "/u/someuser";
+      const href = e.href ?? "https://www.reddit.com/r/x/comments/default/t/";
+      const updated = e.updated ?? "2026-05-14T10:00:00+00:00";
+      const userSlug = author.replace(/^\/u\//, "");
+      return `<entry><author><name>${author}</name><uri>https://www.reddit.com/user/${userSlug}</uri></author><category term="x" label="r/x"/><content type="html">&lt;div&gt;body&lt;/div&gt;</content><id>${e.id ?? "t3_default"}</id><media:thumbnail url="https://i.redd.it/x.jpeg" /><link href="${href}" /><updated>${updated}</updated><published>${updated}</published><title>${e.title ?? "Default title"}</title></entry>`;
+    })
+    .join("");
   return `<?xml version="1.0" encoding="UTF-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
-  <title>r/feed</title>
-${items}
-</feed>`;
+<feed xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom"><title>r/feed</title>${items}</feed>`;
 }
 
 function okResponse(xml: string): Response {
@@ -128,6 +129,9 @@ describe("fetchRedditPosts", () => {
 
     expect(posts.length).toBe(5);
     expect(posts.every((p) => p.id.endsWith("1"))).toBe(true);
+    // rss-parser must yield a clean string author from the real <author> shape
+    // (<name> + <uri> children) — guards against an "[object Object]" regression
+    // if rss-parser ever stops flattening Atom <author> to a string.
     expect(posts.every((p) => p.author === "poster")).toBe(true);
     expect(global.fetch).toHaveBeenCalledTimes(5);
     // .rss endpoint + User-Agent header
