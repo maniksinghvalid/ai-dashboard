@@ -20,7 +20,9 @@ import type { Video, RedditPost, Tweet } from "@/lib/types";
 function captureIfSentry(err: unknown, label: string) {
   console.error(`[cron] ${label} failed:`, err);
   if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-    Sentry.captureException(err);
+    // Tag every capture with its source label so cron failures stay
+    // machine-filterable in Sentry — without each callee self-capturing.
+    Sentry.captureException(err, { tags: { cronSource: label } });
   }
 }
 
