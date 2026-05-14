@@ -115,8 +115,20 @@ Plans:
   3. **Sentiment budget check is atomic (P3 — High):** the daily-budget check-and-consume in `lib/api/sentiment.ts` (currently a non-atomic `redis.get` then `redis.incrby`) is replaced with an atomic operation (Lua script or a single pipelined check-and-increment) such that two concurrent runs cannot both pass the guard and together exceed `SENTIMENT_DAILY_CHAR_BUDGET`. A unit test demonstrates the atomic guard rejects the second concurrent consumer.
   4. **Dead Vercel daily cron removed (P5 — Low, but false-signal risk):** the daily `crons` entry is removed from `vercel.json` (the file's `crons` array is empty or absent); `CLAUDE.md`'s Deployment section is updated to state QStash is the sole working refresh path and to explain why the Vercel cron was removed (it 401s at the edge under Deployment Protection before reaching the route, showing false-green in Vercel's cron dashboard).
   5. **Tests green:** `npm test` exits 0 with new/updated cases for the `cacheSet` boolean contract, the cron lock helper, and the atomic sentiment budget guard; `npx tsc --noEmit && npm run lint` clean.
-**Plans**: TBD — produced by `/gsd-plan-phase 3`
+**Plans**: 4 plans (see below — produced by `/gsd-plan-phase 3`)
 **UI hint**: no
+
+Plans:
+- [ ] 03-01-PLAN.md — P1: `cacheSet` returns a write boolean + pure `deriveSourceOutcome` helper; cron Tier 1 summary becomes three-state (written/skipped_empty/fetcher_threw); CLAUDE.md Key Patterns notes updated [SC-1, SC-5]
+- [ ] 03-02-PLAN.md — P2: `cron:refresh:lock` key + `lib/cache/lock.ts` (acquire/release, SET NX EX 90, value-checked Lua release); lock wraps `refreshAllFeeds()` so both GET/POST are covered, contended → HTTP 200 {status:"locked"} [SC-2, SC-5]
+- [ ] 03-03-PLAN.md — P3: atomic sentiment daily-budget check-and-consume via single `redis.eval` Lua script; concurrent-consumer guard tests; 401 Sentry capture + daily-key semantics preserved [SC-3, SC-5]
+- [ ] 03-04-PLAN.md — P4: remove dead daily `crons` entry from `vercel.json`; tighten CLAUDE.md Deployment prose (QStash sole refresh path, false-green explanation) [SC-4]
+
+**Wave structure** (for parallel execution):
+- **Wave 1** (independent — no inter-deps): 03-01 (P1), 03-03 (P3), 03-04 (P4)
+- **Wave 2** (depends on 03-01 — both modify `app/api/cron/refresh/route.ts`): 03-02 (P2)
+
+**Sequencing note**: 03-01 and 03-02 both touch `app/api/cron/refresh/route.ts` (03-01 rewrites the Tier 1 summary, 03-02 wraps `refreshAllFeeds()` in the lock) — 03-02 is Wave 2 so the two edits do not collide. 03-03 (`lib/api/sentiment.ts`) and 03-04 (`vercel.json` + `CLAUDE.md`) share no files with each other or with 03-01, so all three run in parallel in Wave 1. SC-5 (suite green) is satisfied incrementally — each code plan co-locates its tests; the phase gate is `npm test && npx tsc --noEmit && npm run lint` after Wave 2.
 
 **Scope notes:**
 - **In scope as planner discretion (mooted/folded by the above):** the ZSET member-collision precision bug (system-architect Finding 6) is mooted once SC-2's lock lands — no separate criterion. Reddit per-subreddit silent `[]` returns (Finding 9) are partially surfaced by SC-1's truthful reporting; deeper per-subreddit accounting is discretion, not a gate.
@@ -131,7 +143,7 @@ Phase 1 → Phase 2 → Phase 3. No decimals planned. Phase 2 imported post-road
 |-------|----------------|--------|-----------|
 | 1. SCRUM-38 Implementation | 11/11 (retroactive) | **Complete with D8/D9 amendments** | 2026-05-13 (commits `e28ca7e` + `fa5c49f` + `dd9b6dd`) |
 | 2. Reddit Free Fallback | 1/1 (retroactive) | **Complete (retroactive import)** | 2026-05-13 (commits `66b04aa` + `b404c97`) |
-| 3. Caching & Refresh Hardening | 0/TBD | **Planning** | — |
+| 3. Caching & Refresh Hardening | 0/4 | **Planned** | — |
 
 ---
 
