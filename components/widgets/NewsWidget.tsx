@@ -1,7 +1,9 @@
 import type { NewsItem } from "@/lib/types";
-import { MAX_FEED_ITEMS } from "@/lib/constants";
+import { PAGE_SIZE } from "@/lib/constants";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { WidgetSkeleton } from "@/components/widgets/WidgetSkeleton";
+import { PaginationFooter } from "@/components/ui/PaginationFooter";
+import { usePagination } from "@/lib/hooks/usePagination";
 import { formatRelativeTime } from "@/lib/utils/format";
 
 const SOURCE_STYLES: Record<string, { bg: string; color: string; abbr: string }> = {
@@ -64,6 +66,19 @@ export function NewsWidget({
   error: Error | null;
 }) {
   const count = items?.length ?? 0;
+  const isPopulated =
+    Array.isArray(items) && items.length > 0 && !isLoading && !error;
+  const {
+    pageItems,
+    page,
+    totalPages,
+    hasPrev,
+    hasNext,
+    goPrev,
+    goNext,
+    rangeLabel,
+    showFooter,
+  } = usePagination(items ?? [], PAGE_SIZE, (n) => n.link);
 
   return (
     <WidgetCard
@@ -72,8 +87,23 @@ export function NewsWidget({
       title="AI News"
       badge={count > 0 ? `${count} new` : undefined}
       stale={stale}
-      scrollable={Array.isArray(items) && items.length > 0 && !isLoading && !error ? true : undefined}
-      maxBodyHeight={Array.isArray(items) && items.length > 0 && !isLoading && !error ? "max-h-[320px]" : undefined}
+      scrollable={isPopulated ? true : undefined}
+      maxBodyHeight={isPopulated ? "max-h-[320px]" : undefined}
+      paginationKey={isPopulated ? page : undefined}
+      footer={
+        isPopulated ? (
+          <PaginationFooter
+            page={page}
+            totalPages={totalPages}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
+            onPrev={goPrev}
+            onNext={goNext}
+            rangeLabel={rangeLabel}
+            hidden={!showFooter}
+          />
+        ) : undefined
+      }
     >
       {isLoading ? (
         <WidgetSkeleton lines={5} />
@@ -87,7 +117,7 @@ export function NewsWidget({
         </p>
       ) : (
         <div>
-          {items.slice(0, MAX_FEED_ITEMS).map((item, i) => (
+          {pageItems.map((item, i) => (
             <NewsRow key={`${item.link}-${i}`} item={item} />
           ))}
         </div>
