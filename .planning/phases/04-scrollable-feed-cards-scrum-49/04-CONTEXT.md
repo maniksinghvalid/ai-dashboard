@@ -54,8 +54,8 @@ Out of in-scope artifacts (explicit exclusions):
 
 ### D6 — Scrollbar utility lives in globals.css (LOCKED)
 - Add a `.scrollbar-thin` utility class to `app/globals.css`:
-  - Webkit: `width: 4px`, `background: transparent` for track, rounded thumb in `var(--surface-2)`.
-  - Firefox: `scrollbar-width: thin; scrollbar-color: var(--surface-2) transparent;`.
+  - Webkit: `width: 4px`, `background: transparent` for track, rounded thumb in `var(--surface2)`.
+  - Firefox: `scrollbar-width: thin; scrollbar-color: var(--surface2) transparent;`.
 - Visibility: scrollbar thumb is `opacity: 0` by default and `opacity: 1` on `:hover` of the parent card (use `group` + `group-hover:` from Tailwind on the `WidgetCard` outer div).
 
 ### D7 — Heights are NOT fixed numbers in the ticket (LOCKED)
@@ -104,7 +104,7 @@ Out of in-scope artifacts (explicit exclusions):
 - `components/DashboardShell.tsx` — Grid layout (`lg:grid-cols-2 xl:grid-cols-[280px_1fr_280px]`); not modified by this phase.
 
 ### Existing styling tokens
-- `app/globals.css` — Existing CSS vars (`--surface`, `--surface-2`, `--border`, `--accent`, etc.). Scrollbar utility lands here.
+- `app/globals.css` — Existing CSS vars (`--surface`, `--surface2`, `--border`, `--accent`, etc.). Scrollbar utility lands here.
 - `tailwind.config.ts` — Existing color palette and surface tokens.
 - `CLAUDE.md` — "Dark theme" + "Tailwind color overrides" + "New widgets" sections (Key Patterns).
 
