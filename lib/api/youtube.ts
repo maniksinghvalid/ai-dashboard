@@ -28,7 +28,14 @@ export async function fetchYouTubeVideos(): Promise<Video[]> {
   // Collect all video IDs from successful responses
   const videoIds: string[] = [];
   for (const result of playlistResults) {
-    if (result.status !== "fulfilled") continue;
+    if (result.status !== "fulfilled") {
+      const reason = result.reason as { message?: string } | undefined;
+      console.warn(
+        "[youtube] playlist fetch rejected:",
+        reason?.message ?? result.reason,
+      );
+      continue;
+    }
     const items = result.value.data.items ?? [];
     for (const item of items) {
       const videoId = item.snippet?.resourceId?.videoId;

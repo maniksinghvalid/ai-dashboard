@@ -1,7 +1,10 @@
 import Image from "next/image";
 import type { Video } from "@/lib/types";
+import { PAGE_SIZE } from "@/lib/constants";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { WidgetSkeleton } from "@/components/widgets/WidgetSkeleton";
+import { PaginationFooter } from "@/components/ui/PaginationFooter";
+import { usePagination } from "@/lib/hooks/usePagination";
 import { formatRelativeTime } from "@/lib/utils/format";
 
 function formatViewCount(count: number): string {
@@ -58,6 +61,19 @@ export function YouTubeWidget({
   error: Error | null;
 }) {
   const count = videos?.length ?? 0;
+  const isPopulated =
+    Array.isArray(videos) && videos.length > 0 && !isLoading && !error;
+  const {
+    pageItems,
+    page,
+    totalPages,
+    hasPrev,
+    hasNext,
+    goPrev,
+    goNext,
+    rangeLabel,
+    showFooter,
+  } = usePagination(videos ?? [], PAGE_SIZE, (v) => v.id);
 
   return (
     <WidgetCard
@@ -66,6 +82,23 @@ export function YouTubeWidget({
       title="YouTube"
       badge={count > 0 ? `${count} new` : undefined}
       stale={stale}
+      scrollable={isPopulated ? true : undefined}
+      maxBodyHeight={isPopulated ? "max-h-[320px]" : undefined}
+      paginationKey={isPopulated ? page : undefined}
+      footer={
+        isPopulated ? (
+          <PaginationFooter
+            page={page}
+            totalPages={totalPages}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
+            onPrev={goPrev}
+            onNext={goNext}
+            rangeLabel={rangeLabel}
+            hidden={!showFooter}
+          />
+        ) : undefined
+      }
     >
       {isLoading ? (
         <WidgetSkeleton lines={4} />
@@ -79,7 +112,7 @@ export function YouTubeWidget({
         </p>
       ) : (
         <div>
-          {videos.slice(0, 4).map((video) => (
+          {pageItems.map((video) => (
             <VideoItem key={video.id} video={video} />
           ))}
         </div>

@@ -72,15 +72,33 @@ function todayKey(): string {
   return `sentiment:budget:${y}-${m}-${d}`;
 }
 
-async function checkAndConsumeBudget(charsNeeded: number): Promise<boolean> {
+// Atomic check-and-consume: get → compare → incrby → expire as ONE server-side
+// op. The Upstash REST transport has no MULTI/EXEC, so the get→incrby gap in a
+// JS-side implementation is a double-spend window — two concurrent runs could
+// both pass the guard and together overshoot the budget. Lua ARGV arrive as
+// strings, hence tonumber() on every numeric arg. Returns integer sentinels
+// 1/0 (never a Lua boolean — that coerces to JS null).
+const CONSUME_BUDGET_SCRIPT = `
+local current = tonumber(redis.call("get", KEYS[1]) or "0")
+local needed = tonumber(ARGV[1])
+local budget = tonumber(ARGV[2])
+local ttl = tonumber(ARGV[3])
+if current + needed > budget then return 0 end
+redis.call("incrby", KEYS[1], needed)
+redis.call("expire", KEYS[1], ttl)
+return 1
+`;
+
+export async function checkAndConsumeBudget(charsNeeded: number): Promise<boolean> {
   const budget = Number(process.env.SENTIMENT_DAILY_CHAR_BUDGET ?? String(DEFAULT_BUDGET));
   const key = todayKey();
   const redis = getRedis();
-  const current = (await redis.get<number>(key)) ?? 0;
-  if (current + charsNeeded > budget) return false;
-  await redis.incrby(key, charsNeeded);
-  await redis.expire(key, BUDGET_EXPIRE_SECONDS);
-  return true;
+  const result = await redis.eval(
+    CONSUME_BUDGET_SCRIPT,
+    [key],
+    [charsNeeded, budget, BUDGET_EXPIRE_SECONDS],
+  );
+  return result === 1;
 }
 
 function parseTogetherClassificationResponse(json: unknown): Prediction[] {
@@ -172,6 +190,10 @@ export async function fetchAndCacheSentiment(
     });
 
     if (res.status === 401) {
+      // Distinct message (vs the generic !res.ok throw below) so a rotated or
+      // expired TOGETHER_API_KEY is its own Sentry issue. Do NOT capture here —
+      // the cron's captureIfSentry is the single capture point; self-capturing
+      // double-reports every 401 (once tagged here, once generic in the cron).
       throw new Error(
         "[sentiment] Together AI 401 — TOGETHER_API_KEY may be expired or rotated",
       );

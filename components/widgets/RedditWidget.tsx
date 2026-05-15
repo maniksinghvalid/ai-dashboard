@@ -1,37 +1,30 @@
 import type { RedditPost } from "@/lib/types";
+import { PAGE_SIZE } from "@/lib/constants";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { WidgetSkeleton } from "@/components/widgets/WidgetSkeleton";
+import { PaginationFooter } from "@/components/ui/PaginationFooter";
+import { usePagination } from "@/lib/hooks/usePagination";
 import { formatRelativeTime } from "@/lib/utils/format";
 
-function formatScore(score: number): string {
-  if (score >= 1_000) return `${(score / 1_000).toFixed(1)}k`;
-  return score.toString();
-}
-
+// Reddit data now comes from the .rss (Atom) feed, which carries no score or
+// comment count — the row is built from the fields RSS actually provides:
+// subreddit, title, author, timestamp.
 function PostRow({ post }: { post: RedditPost }) {
   return (
     <a
       href={post.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex cursor-pointer gap-2.5 border-b border-[rgba(255,255,255,0.03)] py-[9px] last:border-b-0"
+      className="block cursor-pointer border-b border-[rgba(255,255,255,0.03)] py-[9px] last:border-b-0"
     >
-      <div className="flex shrink-0 flex-col items-center gap-0.5">
-        <span className="text-xs text-platform-reddit">▲</span>
-        <span className="font-[family-name:var(--font-space-mono)] text-[10px] font-bold text-platform-reddit">
-          {formatScore(post.score)}
-        </span>
+      <div className="mb-0.5 text-[10px] font-bold text-platform-reddit">
+        r/{post.subreddit}
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="mb-0.5 text-[10px] font-bold text-platform-reddit">
-          r/{post.subreddit}
-        </div>
-        <div className="line-clamp-2 text-[11px] font-semibold leading-[1.35] text-[--text]">
-          {post.title}
-        </div>
-        <div className="mt-[3px] text-[10px] text-muted">
-          {post.numComments} comments · {formatRelativeTime(post.createdAt)}
-        </div>
+      <div className="line-clamp-2 text-[11px] font-semibold leading-[1.35] text-[--text]">
+        {post.title}
+      </div>
+      <div className="mt-[3px] text-[10px] text-muted">
+        u/{post.author} · {formatRelativeTime(post.createdAt)}
       </div>
     </a>
   );
@@ -48,6 +41,20 @@ export function RedditWidget({
   isLoading: boolean;
   error: Error | null;
 }) {
+  const isPopulated =
+    Array.isArray(posts) && posts.length > 0 && !isLoading && !error;
+  const {
+    pageItems,
+    page,
+    totalPages,
+    hasPrev,
+    hasNext,
+    goPrev,
+    goNext,
+    rangeLabel,
+    showFooter,
+  } = usePagination(posts ?? [], PAGE_SIZE, (p) => p.id || p.url);
+
   return (
     <WidgetCard
       icon="●"
@@ -55,12 +62,29 @@ export function RedditWidget({
       title="Reddit"
       badge="r/ML · r/AI"
       stale={stale}
+      scrollable={isPopulated ? true : undefined}
+      maxBodyHeight={isPopulated ? "max-h-[320px]" : undefined}
+      paginationKey={isPopulated ? page : undefined}
+      footer={
+        isPopulated ? (
+          <PaginationFooter
+            page={page}
+            totalPages={totalPages}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
+            onPrev={goPrev}
+            onNext={goNext}
+            rangeLabel={rangeLabel}
+            hidden={!showFooter}
+          />
+        ) : undefined
+      }
     >
       {isLoading ? (
         <WidgetSkeleton lines={3} />
       ) : error ? (
         <p className="py-6 text-center text-[11px] text-muted">
-          Failed to load — retrying...
+          Feed temporarily unavailable
         </p>
       ) : !posts || posts.length === 0 ? (
         <p className="py-6 text-center text-[11px] text-muted">
@@ -68,8 +92,10 @@ export function RedditWidget({
         </p>
       ) : (
         <div>
-          {posts.slice(0, 3).map((post) => (
-            <PostRow key={post.id} post={post} />
+          {pageItems.map((post) => (
+            // post.url always has a value (normalizer falls back), so it's a
+            // safe key even in the unlikely event an Atom entry had no <id>.
+            <PostRow key={post.id || post.url} post={post} />
           ))}
         </div>
       )}

@@ -1,7 +1,7 @@
 import { getRedis } from "@/lib/cache/redis";
 import type { CachedData } from "@/lib/types";
 
-const SAFETY_TTL_SECONDS = 86400; // 24 hours
+const SAFETY_TTL_SECONDS = 14400; // 4 hours
 
 export async function cacheGet<T>(
   key: string,
@@ -24,10 +24,13 @@ export async function cacheSet<T>(
   key: string,
   data: T,
   options?: { allowEmpty?: boolean },
-): Promise<void> {
+): Promise<boolean> {
   // Don't overwrite good cached data with empty results unless explicitly allowed
   if (Array.isArray(data) && data.length === 0 && !options?.allowEmpty) {
-    return;
+    console.warn(
+      `[cache] skipping empty write to "${key}" (pass allowEmpty to override)`,
+    );
+    return false;
   }
 
   const redis = getRedis();
@@ -36,4 +39,5 @@ export async function cacheSet<T>(
     fetchedAt: new Date().toISOString(),
   };
   await redis.set(key, wrapped, { ex: SAFETY_TTL_SECONDS });
+  return true;
 }

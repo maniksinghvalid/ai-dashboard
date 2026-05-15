@@ -1,9 +1,34 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("@/lib/cache/redis", () => ({
+  getRedis: vi.fn(),
+}));
+
+// sentiment.ts no longer imports Sentry — this mock is the regression guard:
+// if a future edit re-adds a Sentry.captureException to the 401 branch, the
+// "no self-capture" assertion below will fail.
+vi.mock("@sentry/nextjs", () => ({
+  captureException: vi.fn(),
+}));
+
+import * as Sentry from "@sentry/nextjs";
 import {
   preprocessText,
   aggregateSentiment,
   fetchAndCacheSentiment,
+  checkAndConsumeBudget,
 } from "@/lib/api/sentiment";
+import { getRedis } from "@/lib/cache/redis";
+
+const mockRedis = {
+  eval: vi.fn(),
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(getRedis).mockReturnValue(mockRedis as any);
+});
 
 describe("preprocessText (noise reduction for the LLM judge)", () => {
   it("replaces @handle with literal @user and URL with literal http", () => {
@@ -81,5 +106,96 @@ describe("fetchAndCacheSentiment failure signalling", () => {
     } finally {
       if (prev !== undefined) process.env.TOGETHER_API_KEY = prev;
     }
+  });
+
+  it("throws the distinctive 401 error when Together AI returns 401", async () => {
+    // SCRUM-47: a rotated/expired key → Together AI 401. The 401 branch must
+    // throw the distinctive message (so it's its own Sentry issue via the
+    // cron's single capture point) and must NOT self-capture to Sentry.
+    const prev = process.env.TOGETHER_API_KEY;
+    const originalFetch = global.fetch;
+    process.env.TOGETHER_API_KEY = "test-key";
+    mockRedis.eval.mockResolvedValueOnce(1); // budget guard passes → reaches fetch
+    global.fetch = vi.fn().mockResolvedValue({
+      status: 401,
+      ok: false,
+      statusText: "Unauthorized",
+    } as Response);
+    try {
+      await expect(
+        fetchAndCacheSentiment([{ text: "some post title" }]),
+      ).rejects.toThrow(/Together AI 401.*TOGETHER_API_KEY/);
+      // SCRUM-47 regression guard: the 401 branch must NOT self-capture to
+      // Sentry — the cron's captureIfSentry is the single capture point.
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    } finally {
+      global.fetch = originalFetch;
+      if (prev !== undefined) process.env.TOGETHER_API_KEY = prev;
+      else delete process.env.TOGETHER_API_KEY;
+    }
+  });
+
+  it("throws the generic (non-401) error for other non-2xx responses", async () => {
+    // Locks the 401 branch apart from the generic !res.ok throw — a refactor
+    // that collapsed them would lose the distinctive 401 message and fail here.
+    const prev = process.env.TOGETHER_API_KEY;
+    const originalFetch = global.fetch;
+    process.env.TOGETHER_API_KEY = "test-key";
+    mockRedis.eval.mockResolvedValueOnce(1);
+    global.fetch = vi.fn().mockResolvedValue({
+      status: 500,
+      ok: false,
+      statusText: "Internal Server Error",
+    } as Response);
+    try {
+      await expect(
+        fetchAndCacheSentiment([{ text: "some post title" }]),
+      ).rejects.toThrow(/Together AI returned 500/);
+    } finally {
+      global.fetch = originalFetch;
+      if (prev !== undefined) process.env.TOGETHER_API_KEY = prev;
+      else delete process.env.TOGETHER_API_KEY;
+    }
+  });
+});
+
+describe("checkAndConsumeBudget — atomic daily char budget guard", () => {
+  // The check-and-consume must be a single atomic Redis operation: two
+  // concurrent runs must not both pass the guard and together overspend the
+  // daily char budget. We assert the true/false contract — the guard resolves
+  // true exactly when the atomic op reports "consumed", false when "rejected".
+  it("resolves true for a single consumer that is under budget", async () => {
+    mockRedis.eval.mockResolvedValueOnce(1);
+    await expect(checkAndConsumeBudget(1000)).resolves.toBe(true);
+  });
+
+  it("resolves false when the atomic op rejects (would exceed budget)", async () => {
+    mockRedis.eval.mockResolvedValueOnce(0);
+    await expect(checkAndConsumeBudget(1000)).resolves.toBe(false);
+  });
+
+  it("rejects the second of two concurrent consumers near the limit", async () => {
+    // First consumer consumes the remaining budget atomically (1), the second
+    // — racing on the same key — is rejected (0). Only the first passes.
+    mockRedis.eval.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+
+    const [first, second] = await Promise.all([
+      checkAndConsumeBudget(1000),
+      checkAndConsumeBudget(1000),
+    ]);
+
+    expect(first).toBe(true);
+    expect(second).toBe(false);
+  });
+
+  it("fails closed when eval resolves anything other than the integer 1", async () => {
+    // The guard branches on `result === 1` — a strict, fail-closed coercion.
+    // A null (Lua boolean leak) or a string "1" (transport quirk) must NOT be
+    // read as "consumed". This locks that contract against future refactors.
+    mockRedis.eval.mockResolvedValueOnce(null);
+    await expect(checkAndConsumeBudget(1000)).resolves.toBe(false);
+
+    mockRedis.eval.mockResolvedValueOnce("1");
+    await expect(checkAndConsumeBudget(1000)).resolves.toBe(false);
   });
 });

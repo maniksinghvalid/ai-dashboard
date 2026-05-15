@@ -1,24 +1,41 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: executing
+stopped_at: ROADMAP.md + STATE.md + PROJECT.md + REQUIREMENTS.md written from intel ingest. Ready for `/gsd-plan-phase 1`.
+last_updated: "2026-05-15T04:02:10.034Z"
+last_activity: 2026-05-15 -- Phase 04 execution started
+progress:
+  total_phases: 4
+  completed_phases: 2
+  total_plans: 25
+  completed_plans: 6
+  percent: 24
+---
+
 # Project State
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-05-11)
 
-**Core value:** Real-time AI industry dashboard — the SCRUM-38 phase adds the intelligence layer (sentiment engine, true velocity trending, cross-platform hero, spike alerts, Vitest) on top of the already-shipped data layer (SCRUM-36) and UI shell (SCRUM-37).
-**Current focus:** Phase 1 — SCRUM-38 Implementation
+**Core value:** Real-time AI industry dashboard — the SCRUM-38 phase added the intelligence layer (sentiment engine, true velocity trending, cross-platform hero, spike alerts, Vitest) on top of the already-shipped data layer (SCRUM-36) and UI shell (SCRUM-37). Phase 2 (Reddit Free Fallback) replaced the failing Apify Reddit scraper with Reddit's free JSON API. Both phases shipped 2026-05-13 and were retroactively reconciled into GSD state via /gsd-import + /superpowers:requesting-code-review.
+**Current focus:** Phase 04 — scrollable-feed-cards-scrum-49
 
 ## Current Position
 
-Phase: 1 of 1 (SCRUM-38 Implementation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-05-11 — Roadmap created from `.planning/intel/` ingest (SYNTHESIS.md, 11 locked decisions, 10 requirements, 13 constraints)
+Phase: 04 (scrollable-feed-cards-scrum-49) — EXECUTING
+Plan: 1 of 8
+Status: Executing Phase 04
+Last activity: 2026-05-15 -- Phase 04 execution started
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100% (Phase 1 + Phase 2 retroactively closed 2026-05-13)
 
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 0
 - Average duration: n/a
 - Total execution time: 0.0 hours
@@ -27,9 +44,11 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. SCRUM-38 Implementation | 0/TBD | - | - |
+| 1. SCRUM-38 Implementation | 11/11 (retroactive) | - | - |
+| 2. Reddit Free Fallback | 1/1 (retroactive) | - | - |
 
 **Recent Trend:**
+
 - Last 5 plans: n/a
 - Trend: n/a (no plans completed yet)
 
@@ -42,6 +61,7 @@ Progress: [░░░░░░░░░░] 0%
 Full decision log lives in PROJECT.md `<decisions>` block. All 11 entries (D1–D7 + F1–F4) are **locked** and must not be re-debated by downstream planners.
 
 Recent decisions affecting current work:
+
 - **D1 / D7 / F1:** Together AI is the sentiment provider with a hard `SENTIMENT_DAILY_CHAR_BUDGET` circuit breaker; `HUGGINGFACE_API_TOKEN` is explicitly forbidden.
 - **D2:** Single Redis ZSET per `(topic, platform)`, 96-slot cap; no snapshot rotation. Feeds both 1h velocity and 24h alert baseline.
 - **D3:** Hero threshold relaxed to top-3 on all 3 platforms (documented inline in `app/api/hero/route.ts`).

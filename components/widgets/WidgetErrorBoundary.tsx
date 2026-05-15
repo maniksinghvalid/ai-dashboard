@@ -24,15 +24,21 @@ export class WidgetErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("[WidgetErrorBoundary]", error, errorInfo);
-    import("@sentry/nextjs").then((Sentry) => {
-      if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-        Sentry.captureException(error, {
-          contexts: {
-            react: { componentStack: errorInfo.componentStack ?? undefined },
-          },
-        });
-      }
-    });
+    import("@sentry/nextjs")
+      .then((Sentry) => {
+        if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+          Sentry.captureException(error, {
+            contexts: {
+              react: { componentStack: errorInfo.componentStack ?? undefined },
+            },
+          });
+        }
+      })
+      .catch((err) => {
+        // A failed Sentry-chunk load must not itself become an unhandled
+        // rejection — log and move on.
+        console.error("[WidgetErrorBoundary] failed to load Sentry", err);
+      });
   }
 
   render() {
