@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
+const PAGE_FADE_MS = 120;
+
 export function WidgetCard({
   icon,
   iconBg,
@@ -8,6 +10,8 @@ export function WidgetCard({
   stale = false,
   scrollable,
   maxBodyHeight,
+  footer,
+  paginationKey,
   children,
 }: {
   icon: ReactNode;
@@ -17,10 +21,15 @@ export function WidgetCard({
   stale?: boolean;
   scrollable?: boolean;
   maxBodyHeight?: string;
+  footer?: ReactNode;
+  paginationKey?: number | string;
   children: ReactNode;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [atBottom, setAtBottom] = useState(false);
+  const [paging, setPaging] = useState(false);
+  // Skip the very first render so initial mount doesn't visibly flash.
+  const isFirstPaginationRender = useRef(true);
 
   useEffect(() => {
     if (!scrollable) return;
@@ -32,6 +41,20 @@ export function WidgetCard({
     el.addEventListener("scroll", check, { passive: true });
     return () => el.removeEventListener("scroll", check);
   }, [scrollable]);
+
+  useEffect(() => {
+    if (paginationKey === undefined) return;
+    if (isFirstPaginationRender.current) {
+      isFirstPaginationRender.current = false;
+      return;
+    }
+    setPaging(true);
+    const t = setTimeout(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = 0;
+      setPaging(false);
+    }, PAGE_FADE_MS);
+    return () => clearTimeout(t);
+  }, [paginationKey]);
 
   return (
     <div className="group overflow-hidden rounded-[14px] border border-[--border] bg-surface">
@@ -64,7 +87,8 @@ export function WidgetCard({
           tabIndex={0}
           role="region"
           aria-label={`${title} feed, scrollable`}
-          className={`relative ${maxBodyHeight ?? "max-h-[320px]"} overflow-y-auto scrollbar-thin px-3.5 py-2.5 outline-none focus-visible:ring-1 focus-visible:ring-accent focus-visible:ring-inset`}
+          data-paging={paging ? "out" : "in"}
+          className={`relative ${maxBodyHeight ?? "max-h-[320px]"} overflow-y-auto scrollbar-thin px-3.5 py-2.5 outline-none transition-opacity duration-[120ms] focus-visible:ring-1 focus-visible:ring-accent focus-visible:ring-inset data-[paging=out]:opacity-0`}
         >
           {children}
           {!atBottom && (
@@ -77,6 +101,7 @@ export function WidgetCard({
       ) : (
         <div className="px-3.5 py-2.5">{children}</div>
       )}
+      {footer}
     </div>
   );
 }
