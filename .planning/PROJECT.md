@@ -2,92 +2,115 @@
 
 ## Core Value
 
-AIP-Dash (AI Pulse Live Dashboard) is a real-time AI industry intelligence dashboard
-that aggregates YouTube, Reddit, X/Twitter, and news data, computes true cross-platform
-velocity + sentiment + spike alerts, and surfaces a hero story when the same AI topic
-trends on all 3 platforms simultaneously. The current GSD scope (SCRUM-38) layers
-the **intelligence** on top of the already-shipped data layer (SCRUM-36) and UI shell
-(SCRUM-37): paid sentiment via Together AI, velocity-based trending, cross-platform
-hero auto-promotion, spike alerts, and the project's first test infrastructure.
+AIP-Dash (AI Pulse Live Dashboard) is a real-time AI industry intelligence dashboard that aggregates YouTube, Reddit, X/Twitter, and news data, computes true cross-platform velocity + sentiment + spike alerts, and surfaces a hero story when the same AI topic trends on YouTube + Reddit + X simultaneously. The dashboard runs a 3-tier cron DAG every 15 minutes, caches all platform feeds in Upstash Redis, and serves a 3-column scrollable UI with per-platform 15-item feeds.
 
-**Success metric:** Sentiment refresh leg completes within a 5s budget per cron cycle
-**AND** the hero promotes when a topic appears in top-3 on all 3 platforms
-(YouTube + Reddit + X) simultaneously.
+## Current State (as of v1.0 close — 2026-05-14)
 
-## Target Runtime
+**Shipped:** Data layer (SCRUM-36) + UI shell (SCRUM-37) + intelligence layer (Phase 1 / SCRUM-38) + Reddit free fallback (Phase 2) + cron concurrency & honesty hardening (Phase 3) + scrollable feed cards (Phase 4 / SCRUM-49).
 
+**Runtime in production:**
 - **Platform:** Vercel (Next.js 14 App Router) on Node.js 20
-- **Storage:** Upstash Redis (caching + time-series ZSETs); no SQL store
-- **Refresh cadence:** Upstash QStash 15-min POST (signed) is the sole working refresh path; the `/api/cron/refresh` GET handler also accepts bearer-auth (`CRON_SECRET`) manual triggers. The Vercel daily `crons` entry was removed (Phase 3) — under Deployment Protection it 401s at the edge before reaching the route
-- **Inference:** Together AI (sentiment) hosting `cardiffnlp/twitter-roberta-base-sentiment-latest`
+- **Storage:** Upstash Redis (caching + time-series ZSETs); no SQL store. Every key has a 4h safety TTL backstop (Phase 3, commit `94c8a73`)
+- **Refresh cadence:** Upstash QStash 15-min POST (signed) is the **sole** working refresh path (Vercel daily `crons` was removed in Phase 3 — 401'd at the edge under Deployment Protection). `/api/cron/refresh` GET handler also accepts bearer-auth (`CRON_SECRET`) manual triggers.
+- **Concurrency:** `refreshAllFeeds()` wrapped in a Redis distributed lock (`cron:refresh:lock`, `SET NX EX 90`) — concurrent QStash retries return HTTP 200 `{status:"locked"}` instead of double-running (Phase 3, commit `7c7c0ac`)
+- **Cron summary truthfulness:** Tier 1 sources report three-state outcomes (`written` / `skipped_empty` / `fetcher_threw`) — no more all-`ok` false-greens on empty-array runs (Phase 3, commit `93b7254`)
+- **Reddit ingestion:** Atom RSS feeds (`https://www.reddit.com/r/<sub>/.rss`) — the JSON API is datacenter-IP-blocked from Vercel (Phase 3, commit `94c8a73`)
+- **Inference:** Together AI hosting `meta-llama/Llama-3.3-70B-Instruct-Turbo` (LLM-as-judge sentiment classifier — D8 amendment replacing cardiffnlp roberta). 35s timeout per cron cycle; 60s function ceiling (D9).
 - **Instrumentation:** Sentry (client + server + edge), all guarded by `NEXT_PUBLIC_SENTRY_DSN` presence
-- **UI:** Dark-only theme (`<html className="dark">`), DM Sans + Space Mono, Tailwind with custom token overrides (see CLAUDE.md)
+- **UI:** Dark-only theme, DM Sans + Space Mono, Tailwind with custom token overrides. Per-platform feed widgets cap at 15 items inside a scrollable card body with scroll-aware bottom-fade overlay + focus-visible accent ring (Phase 4).
+- **Test infra:** Vitest with `environment: "node"` baseline + jsdom + `@testing-library/react` for component-render tests (`.tsx` via `@vitejs/plugin-react`). 128 tests across 17 files at v1.0 close.
 
-## Constraints
+**Out of scope but on the v1.0 backlog:** cron tier-restructure for sentiment 35s-vs-60s budget collision, stale upstream death monitoring, spike-alert consumers, sentiment history sparkline, Reddit OAuth tripwire (2026-05-20 check). See `.planning/ROADMAP.md` "Backlog" section.
 
-- **Vercel function ceiling:** `app/api/cron/refresh/route.ts` must `export const maxDuration = 30`. Default 10s ceiling would time out the 3-tier DAG (Tier 1 ~3-5s + Tier 2 ~1-2s + Tier 3 ~2-5s ≈ ~12s).
-- **Sentiment budget:** 5s per refresh cycle (provider choice was budget-driven). If Together latency drifts, provider is re-evaluated; the budget does not relax.
-- **Sentiment quota:** `SENTIMENT_DAILY_CHAR_BUDGET` (default ~200000) is a hard circuit breaker. Original ~57M chars/month projection at 15-min cadence × 100 texts × ~200 chars is the ceiling being protected against.
-- **Trending storage:** One Redis ZSET per `(topic, platform)`, 96-slot cap, time-scored. **Forbidden:** snapshot rotation, `trending:snapshot:1h` keys. Both `trending.ts` and `alerts.ts` read this shape via `lib/cache/timeseries.ts`.
-- **Alerts cap:** `alerts:spikes` Redis list capped at 100 entries; every `LPUSH` followed by `LTRIM alerts:spikes 0 99` in the same call sequence.
-- **Hero threshold:** Top-3 on all 3 platforms (relaxation from ticket's literal "#1 on all 3") — must be documented inline in `app/api/hero/route.ts`.
+## Next Milestone Goals
+
+> Empty — populated by `/gsd-new-milestone` when the next version is seeded.
+
+## Active Scope
+
+- **Epic:** SCRUM-27 (AIP-Dash)
+- **Active ticket:** None at milestone close. SCRUM-49 (Phase 4) is in "In Review" on PR #17 awaiting merge.
+
+## Constraints (live across versions)
+
+- **Vercel function ceiling:** `app/api/cron/refresh/route.ts` exports `maxDuration = 60` (D9). Default 10s ceiling would time out the 3-tier DAG.
+- **Sentiment timeout:** `TIMEOUT_MS = 35_000` for the Llama-3.3-70B chat-completion call. The original 5s budget (D7 cardiffnlp era) is no longer a release gate — `/benchmark` should NOT be used as a sentiment-leg gate.
+- **Sentiment quota:** `SENTIMENT_DAILY_CHAR_BUDGET` (default ~200000) is a hard circuit breaker, atomically check-and-consumed via single `redis.eval` Lua script (Phase 3, commit `cb6f388`).
+- **Trending storage:** One Redis ZSET per `(topic, platform)`, 96-slot cap, time-scored (D2). **Forbidden:** snapshot rotation, `trending:snapshot:1h` keys. Both `trending.ts` and `alerts.ts` read this shape via `lib/cache/timeseries.ts`.
+- **Alerts cap:** `alerts:spikes` Redis list capped at 100 entries; every `LPUSH` followed by `LTRIM alerts:spikes 0 99`.
+- **Hero threshold:** Top-3 on all 3 platforms (relaxation from ticket's literal "#1 on all 3" — D3) — must be documented inline in `app/api/hero/route.ts`.
 - **Cron DAG shape:** 3 sequenced tiers, each `Promise.allSettled`. Tier 1 external fetches ‖, Tier 2 trending tally writes ZSETs, Tier 3 hero ‖ alerts ‖ sentiment.
 - **Redis client:** Always `getRedis()` (lazy init) — never `new Redis()` directly. Lazy pattern is required because Upstash validates URLs at construction time and breaks `next build` when env vars are absent.
 - **SWR access:** New dashboard data hooks must use `useApiData<T>()` from `lib/hooks/use-api-data.ts` — no direct `useSWR` calls.
-- **Cardiffnlp preprocessing:** Inputs must be normalized (`@username` → `@user`, `http*` URL → `http`) before being sent to the model. Skipping is a silent quality regression and is forbidden.
-- **PR shape risk:** 14 files / 5 new modules trips both complexity triggers (≥8 files AND ≥2 new modules). Alerts (`lib/api/alerts.ts` + its slice of `timeseries.ts` + spike thresholds) are cleanly separable to a follow-up PR if friction surfaces.
+- **`cacheSet` contract:** returns a boolean — `true` if a write occurred, `false` if the empty-array guard skipped the write. Callers must thread this signal into outcome reporting (Phase 3 SC-1).
 - **Env contract drop:** `HUGGINGFACE_API_TOKEN` is **explicitly forbidden** — never reintroduce.
-- **Key rotation observability:** Sentry should surface 401s from the sentiment fetch leg; the client should log 401s explicitly rather than swallowing them.
+- **Feed widget render cap:** Each feed widget (YouTube, Reddit, X, News) slices at `MAX_FEED_ITEMS = 15` from `lib/constants.ts`. **Forbidden:** hardcoded `15` in any widget. Cap is enforced at the widget render layer only — fetchers stay untouched so trending + hero receive full pre-slice arrays (Phase 4 D1).
+- **WidgetCard scrollable contract:** `WidgetCard` exposes optional `scrollable` + `maxBodyHeight` props. When `scrollable=true`, the body wrapper must include `role="region"`, `tabIndex={0}`, per-widget `aria-label`, `max-h-[N]`, `overflow-y-auto`, `.scrollbar-thin`, focus-visible accent ring, and a sibling absolutely-positioned bottom-fade overlay (Phase 4 D3-D5).
+- **Key rotation observability:** Sentry surfaces 401s from the sentiment fetch leg; the client logs 401s explicitly rather than swallowing them.
 
 ## Historical Milestones (Shipped — do not plan)
 
 | Ticket | Title | Status | Notes |
 |--------|-------|--------|-------|
-| SCRUM-36 | Data layer (API clients, Redis caching, cron skeleton) | done | Provides `lib/api/{youtube,reddit,twitter,news,trending}.ts`, `lib/cache/{redis,helpers}.ts`, cron route stub. SCRUM-38 depends on this. |
-| SCRUM-37 | Frontend dashboard UI (shell, widget contracts, theme) | done | Provides `DashboardShell`, `WidgetCard`, `WidgetErrorBoundary`, `HeroStoryCard`, placeholder `SentimentWidget`, dark theme tokens. SCRUM-38 polishes SentimentWidget + HeroStoryCard but does not rebuild the shell. |
+| SCRUM-36 | Data layer (API clients, Redis caching, cron skeleton) | done | Provides `lib/api/{youtube,reddit,twitter,news,trending}.ts`, `lib/cache/{redis,helpers}.ts`. |
+| SCRUM-37 | Frontend dashboard UI (shell, widget contracts, theme) | done | Provides `DashboardShell`, `WidgetCard`, `WidgetErrorBoundary`, `HeroStoryCard`, dark theme tokens. |
+| SCRUM-48 | Curated sources expansion | done (merged `0d0d928` 2026-05-14) | Extended subreddits + X user IDs + news RSS feeds. |
+| SCRUM-38 | Sentiment Analysis Engine & Cross-Platform Trending | done (Phase 1) | Intelligence layer: ZSET velocity, hero auto-promotion, spike alerts, Together AI sentiment (D8 LLM-judge), Vitest bootstrap. |
+| (operational) | Reddit Free Fallback | done (Phase 2) | Replaced Apify with Reddit free path; later switched to `.rss` in Phase 3 because the JSON API is datacenter-IP-blocked from Vercel. |
+| (operational) | Caching & Refresh Hardening | done (Phase 3, PR #12) | Truthful cron summary, distributed lock, atomic sentiment budget, dead Vercel cron removal, 4h safety TTL, Reddit `.rss` switch. |
+| SCRUM-49 | Scrollable Feed Cards | in review (Phase 4, PR #17) | 15-item cap at widget layer, scrollable card body with scroll-aware bottom-fade, focus-visible accent ring, `.scrollbar-thin` utility. |
 
-Current SCRUM-38 work assumes both predecessors are merged and in production. The
-roadmap below does not plan work for them.
+## Key Decisions (LOCKED — carry across versions)
 
-## Active Scope
-
-- **Epic:** SCRUM-27 (AIP-Dash)
-- **Active ticket:** [SCRUM-38](https://prabhneet.atlassian.net/browse/SCRUM-38) — Sentiment Analysis Engine & Cross-Platform Trending
-- **Maps to:** Phase 1 of this roadmap (single phase, see ROADMAP.md)
-- **Out of scope here:** gstack post-implementation gates 4–9 (`/qa`, `/benchmark`, `/review`, `/ship`, `/land-and-deploy`, `/canary`) are gstack skill protocols, not GSD phases.
-
-## Key Decisions
-
-<decisions>
-
-All entries below are **LOCKED**. Source: `arch/precious-leaping-wren.md` (embedded GSTACK REVIEW REPORT). The roadmapper / planner must not soften, re-debate, or restructure these.
+<details>
+<summary>v1.0 decisions (D1-D9, F1-F4 from SCRUM-38 / arch/precious-leaping-wren.md)</summary>
 
 | ID | Status | Decision | Rationale (short) |
 |----|--------|----------|-------------------|
-| D1 | locked | Use a paid inference vendor with a daily char-budget circuit breaker; drop HF Serverless entirely | HF free tier is 30k chars/month vs ~57M chars/month projected usage at 15-min cadence × 100 texts × ~200 chars |
-| D2 | locked | One Redis ZSET per `(topic, platform)`, 96-slot cap, time-scored; no snapshot rotation; single structure feeds 1h velocity calc and 24h alert baseline | Eliminates the `trending:snapshot:1h` rotation race condition flagged as risk #2 in the original plan |
-| D3 | locked | Hero promotes when a topic is top-3 on all 3 platforms, ranked by aggregate velocity; route handler must document this relaxation from the ticket's literal "#1 on all 3" wording | Sparse X data means strict "#1 on all 3" rarely fires; top-3 keeps the feature active while preserving cross-platform signal |
-| D4 | locked | Cron is a 3-tier sequenced DAG with `Promise.allSettled` per tier: Tier 1 external fetches ‖, Tier 2 trending tally writes ZSETs, Tier 3 hero ‖ alerts ‖ sentiment | Any leg's failure does not block siblings or downstream tiers where siblings are independent |
-| D5 | locked | `lib/topics.ts` shape: `type Topic = { id: string; label: string; aliases: string[]; wordBoundary?: boolean }` — substring matching by default, `wordBoundary: true` for collision-prone topics like "agents" | Typed taxonomy replaces inline `AI_TERMS` array; needed for unit testability |
-| D6 | locked | Vitest is the test framework. Test the pure-function core only: `lib/topics.ts`, velocity calc, hero threshold, sentiment aggregation, alert spike detection, cardiffnlp preprocessing. Skip route handlers. 5 test files required; deps `vitest` + `@vitest/coverage-v8` + `tsx`; scripts `test` / `test:watch` / `test:coverage`; `vitest.config.ts` with `environment: "node"` and `@/*` alias to project root | Project's first test framework; bootstraps pure-function coverage without route plumbing |
-| D7 | **amended 2026-05-13 — see D8** | ~~Together AI is the sentiment provider, hosting `cardiffnlp/twitter-roberta-base-sentiment-latest`; new env var `TOGETHER_API_KEY`~~ | Together's fast batch endpoint meets the 5s budget natively |
-| D8 | locked (amends D7) | Together AI is still the sentiment provider with `TOGETHER_API_KEY`, but the model is `meta-llama/Llama-3.3-70B-Instruct-Turbo` via the chat-completions endpoint (LLM-as-judge classifier), not the cardiffnlp fine-tuned classifier. Output is parsed from a JSON-shaped chat response into `{label, score}` per input via `parseTogetherClassificationResponse` (`lib/api/sentiment.ts`). | At execution time, Together's batch classification endpoint for the cardiffnlp model was not in a viable shape for this workload; the LLM-judge approach via Llama-3.3-70B-Instruct-Turbo was chosen as a pragmatic substitution. F2 preprocessing remains useful — `@user` and `http` normalization reduces token bloat and input noise for any classifier, including the LLM-judge variant. Trade-off: the original D7-cited 5s budget premise no longer holds (see D9 amending F3). |
-| F1 | locked | `.env.example`: add `TOGETHER_API_KEY` + `SENTIMENT_DAILY_CHAR_BUDGET` (default ~200000); **drop** `HUGGINGFACE_API_TOKEN` (never to be introduced) | Aligns env contract with D7+D8 + D1 |
-| F2 | locked (still applicable post-D8) | `lib/api/sentiment.ts` ships `preprocessText()` replacing `@username` → literal `@user` and any `http*` URL → literal `http` before submitting to the model; unit-tested per D6 | Originally cardiffnlp model-card requirement; under D8 the normalization is retained because it reduces LLM token bloat and improves classification stability |
-| F3 | **amended 2026-05-13 — see D9** | ~~`app/api/cron/refresh/route.ts` exports `const maxDuration = 30`~~ | 3-tier DAG hits ~12s under load; Vercel default 10s would time out |
-| D9 | locked (amends F3) | `app/api/cron/refresh/route.ts` exports `const maxDuration = 60` (not 30). Sentiment leg under D8 uses `TIMEOUT_MS = 35_000` for the Llama-3.3-70B chat-completion call, which structurally cannot fit inside a 30s function ceiling. Acceptable because the cron path is async (QStash POST or daily GET) and not in any user-facing latency path. | F3's 30s ceiling was sized for the cardiffnlp batch endpoint; D8's LLM-judge substitution invalidates that sizing. Trade-off: doubled wall-time ceiling; Vercel function cost is per-active-CPU-time so idle wait inside the 35s sentiment timeout is cheap; net function billing impact is minor. The original "DAG hits ~12s under load" rationale is also obsolete — the LLM-judge path runs longer. |
-| F4 | locked (as risk + mitigation policy) | PR trips both complexity triggers (14 files / 5 new modules ≥ 8 files AND ≥ 2 new modules). User pre-committed to bundle alerts. Mitigation: if friction surfaces during implementation, alerts (`lib/api/alerts.ts`, alerts ZSET reads, spike thresholds) split cleanly to a follow-up PR — alerts have no consumer yet | Acknowledged scope-trip risk with a known-good fallback shape |
+| D1 | locked | Paid inference vendor with a daily char-budget circuit breaker; drop HF Serverless entirely | HF free tier 30k chars/month vs ~57M projected |
+| D2 | locked | One Redis ZSET per `(topic, platform)`, 96-slot cap, time-scored; single structure feeds 1h velocity + 24h alert baseline | Eliminates `trending:snapshot:1h` rotation race |
+| D3 | locked | Hero promotes when top-3 on all 3 platforms (relaxation from literal "#1 on all 3"); inline-documented in route handler | Sparse X data means strict #1-on-all-3 rarely fires |
+| D4 | locked | Cron is a 3-tier sequenced DAG with `Promise.allSettled` per tier | Any leg's failure doesn't block siblings |
+| D5 | locked | `lib/topics.ts` shape: `type Topic = { id; label; aliases; wordBoundary? }` | Typed taxonomy replaces inline `AI_TERMS` array |
+| D6 | locked (extended P4) | Vitest is the test framework. Phase 1 ships pure-function tests; Phase 4 extends with jsdom + RTL for component-render tests | Project's first test infrastructure |
+| D7 | superseded by D8 | ~~Together AI hosting `cardiffnlp/twitter-roberta-base-sentiment-latest`~~ | Replaced because the Together batch endpoint for cardiffnlp was not in a viable shape at execution time |
+| D8 | locked (amends D7) | Together AI hosting `meta-llama/Llama-3.3-70B-Instruct-Turbo` (LLM-as-judge classifier) via chat-completions; output parsed to `{label, score}` per input | Pragmatic substitution; F2 preprocessing retained because it reduces LLM token bloat |
+| D9 | locked (amends F3) | Cron `maxDuration = 60`; sentiment `TIMEOUT_MS = 35_000` | F3's 30s ceiling was sized for cardiffnlp; D8's LLM-judge invalidates that sizing |
+| F1 | locked | `.env.example`: add `TOGETHER_API_KEY` + `SENTIMENT_DAILY_CHAR_BUDGET`; **drop** `HUGGINGFACE_API_TOKEN` | Env contract follows D1 + D7 + D8 |
+| F2 | locked (still applicable post-D8) | `preprocessText()`: `@username` → `@user`, `http*` URL → `http` | Reduces LLM token bloat / input noise |
+| F3 | superseded by D9 | ~~`maxDuration = 30`~~ | Replaced (see D9) |
+| F4 | locked (as policy) | If PR friction surfaces, alerts split cleanly to a follow-up PR (no consumer yet) | Known-good fallback shape for the 14-files / 5-new-modules complexity trip |
 
-</decisions>
+</details>
+
+<details>
+<summary>v1.0 Phase 3 decisions — cron hardening</summary>
+
+- **`cacheSet` returns a write boolean** + pure `deriveSourceOutcome` helper; cron Tier 1 summary becomes three-state (`written` / `skipped_empty` / `fetcher_threw`)
+- **`cron:refresh:lock` distributed lock** via `SET NX EX 90` + value-checked Lua release; wraps `refreshAllFeeds()`
+- **Atomic sentiment daily-budget** check-and-consume via single `redis.eval` Lua script
+- **Dead Vercel daily `crons`** removed from `vercel.json` (was 401'ing at the edge under Deployment Protection)
+- **4h safety TTL** on every cache key (`SAFETY_TTL_SECONDS = 14400` in `cacheSet`'s `ex` option)
+
+</details>
+
+<details>
+<summary>v1.0 Phase 4 decisions — scrollable feed cards</summary>
+
+- **D1 (P4):** Layer discipline — 15-cap enforced at widget layer only; fetchers untouched
+- **D2 (P4):** `MAX_FEED_ITEMS = 15` in `lib/constants.ts` as single source of truth
+- **D3-D5 (P4):** `WidgetCard` exposes optional `scrollable` + `maxBodyHeight` props; bottom-fade is a sibling absolutely-positioned overlay (scroll-aware: unmounts at bottom); focus-visible accent ring at `#7c6eff` (`--accent`)
+- **D6 (P4):** `.scrollbar-thin` utility in `app/globals.css` (not Tailwind plugin); `.group:hover` hover-toggle for WebKit + always-thin via `scrollbar-width: thin` for Firefox
+- **D8 (P4):** Feed regions are tab-reachable with `tabindex="0"`, `role="region"`, per-platform `aria-label`
+- **D9 (P4):** Badge contract preserved — `${count} new` reflects live array length 1-15 on YouTube + News; static labels preserved on Reddit + X
+
+</details>
 
 ## Pointers
 
-- Synthesis entry point: `.planning/intel/SYNTHESIS.md`
-- Decisions detail: `.planning/intel/decisions.md`
-- Requirements detail: `.planning/intel/requirements.md`
-- Constraints detail: `.planning/intel/constraints.md`
-- Context detail: `.planning/intel/context.md`
-- Source spec: `arch/precious-leaping-wren.md`
-- Roadmap: `.planning/ROADMAP.md`
-- State: `.planning/STATE.md`
-- Project conventions: `CLAUDE.md` (repo root)
+- **Active state:** `.planning/STATE.md`
+- **Active milestone:** `.planning/ROADMAP.md` (collapsed for shipped milestones; current section empty until `/gsd-new-milestone` runs)
+- **Active requirements:** `.planning/REQUIREMENTS.md` (deleted at v1.0 close; recreated by `/gsd-new-milestone`)
+- **Archived milestones:** `.planning/milestones/v1.0-ROADMAP.md`, `.planning/milestones/v1.0-REQUIREMENTS.md`
+- **v1.0 source intel:** `.planning/intel/SYNTHESIS.md` + `.planning/intel/{decisions,requirements,constraints,context}.md` + `arch/precious-leaping-wren.md`
+- **Project conventions:** `CLAUDE.md` (repo root)
