@@ -1,4 +1,5 @@
 import type { NewsItem } from "@/lib/types";
+import { MAX_FEED_ITEMS } from "@/lib/constants";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { WidgetSkeleton } from "@/components/widgets/WidgetSkeleton";
 import { formatRelativeTime } from "@/lib/utils/format";
@@ -71,6 +72,8 @@ export function NewsWidget({
       title="AI News"
       badge={count > 0 ? `${count} new` : undefined}
       stale={stale}
+      scrollable={Array.isArray(items) && items.length > 0 && !isLoading && !error ? true : undefined}
+      maxBodyHeight={Array.isArray(items) && items.length > 0 && !isLoading && !error ? "max-h-[320px]" : undefined}
     >
       {isLoading ? (
         <WidgetSkeleton lines={5} />
@@ -84,7 +87,7 @@ export function NewsWidget({
         </p>
       ) : (
         <div>
-          {items.slice(0, 5).map((item, i) => (
+          {items.slice(0, MAX_FEED_ITEMS).map((item, i) => (
             <NewsRow key={`${item.link}-${i}`} item={item} />
           ))}
         </div>
