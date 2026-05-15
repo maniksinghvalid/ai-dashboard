@@ -120,10 +120,10 @@ Plans:
 **UI hint**: no
 
 Plans:
-- [ ] 03-01-PLAN.md — P1: `cacheSet` returns a write boolean + pure `deriveSourceOutcome` helper; cron Tier 1 summary becomes three-state (written/skipped_empty/fetcher_threw); CLAUDE.md Key Patterns notes updated [SC-1, SC-5]
-- [ ] 03-02-PLAN.md — P2: `cron:refresh:lock` key + `lib/cache/lock.ts` (acquire/release, SET NX EX 90, value-checked Lua release); lock wraps `refreshAllFeeds()` so both GET/POST are covered, contended → HTTP 200 {status:"locked"} [SC-2, SC-5]
-- [ ] 03-03-PLAN.md — P3: atomic sentiment daily-budget check-and-consume via single `redis.eval` Lua script; concurrent-consumer guard tests; 401 Sentry capture + daily-key semantics preserved [SC-3, SC-5]
-- [ ] 03-04-PLAN.md — P4: remove dead daily `crons` entry from `vercel.json`; tighten CLAUDE.md Deployment prose (QStash sole refresh path, false-green explanation) [SC-4]
+- [x] 03-01-PLAN.md — P1: `cacheSet` returns a write boolean + pure `deriveSourceOutcome` helper; cron Tier 1 summary becomes three-state (written/skipped_empty/fetcher_threw); CLAUDE.md Key Patterns notes updated [SC-1, SC-5]
+- [x] 03-02-PLAN.md — P2: `cron:refresh:lock` key + `lib/cache/lock.ts` (acquire/release, SET NX EX 90, value-checked Lua release); lock wraps `refreshAllFeeds()` so both GET/POST are covered, contended → HTTP 200 {status:"locked"} [SC-2, SC-5]
+- [x] 03-03-PLAN.md — P3: atomic sentiment daily-budget check-and-consume via single `redis.eval` Lua script; concurrent-consumer guard tests; 401 Sentry capture + daily-key semantics preserved [SC-3, SC-5]
+- [x] 03-04-PLAN.md — P4: remove dead daily `crons` entry from `vercel.json`; tighten CLAUDE.md Deployment prose (QStash sole refresh path, false-green explanation) [SC-4]
 
 **Wave structure** (for parallel execution):
 - **Wave 1** (independent — no inter-deps): 03-01 (P1), 03-03 (P3), 03-04 (P4)
