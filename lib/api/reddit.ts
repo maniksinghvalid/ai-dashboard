@@ -1,7 +1,8 @@
 import RSSParser from "rss-parser";
 import type { RedditPost } from "@/lib/types";
-import { SUBREDDITS, CACHE_KEYS } from "@/lib/constants";
+import { SUBREDDITS, CACHE_KEYS, type SubredditConfig } from "@/lib/constants";
 import { cacheSet } from "@/lib/cache/helpers";
+import { RETRY_STATUS, jitterMs } from "@/lib/api/resilience";
 
 // Reddit's anonymous JSON API (www.reddit.com/r/*/hot.json) is 403-blocked from
 // datacenter IPs (Vercel functions). The .rss (Atom) feed is a separate
@@ -19,6 +20,13 @@ const USER_AGENT = process.env.REDDIT_USER_AGENT || DEFAULT_USER_AGENT;
 // Best-effort on the .rss path — Reddit's RSS feeds cap around 25 entries and
 // may ignore ?limit entirely (unlike the JSON API, where it was authoritative).
 const PER_SUBREDDIT_LIMIT = 25;
+
+// Title-based AI-relevance filter for general-purpose subreddits (those with
+// `aiFilter: true` in SUBREDDITS — e.g. r/programming). Word-boundary match so
+// "ai" hits "AI" but not "rain"/"detail"; the optional `s?` catches plurals
+// like "LLMs"/"GPTs"/"models". Applied per-subreddit before caching.
+const AI_KEYWORD_RE =
+  /\b(?:llms?|ai|gpts?|claude|models?|neural|transformers?)\b/i;
 
 // rss-parser's parsed Atom item — only the fields this normalizer reads.
 interface AtomItem {
@@ -52,12 +60,6 @@ export function normalizeRedditAtomEntry(
   };
 }
 
-const RETRY_STATUS = new Set([429, 503]);
-
-function jitterMs(): number {
-  return 2000 + Math.floor(Math.random() * 3000);
-}
-
 async function fetchOnce(sub: string): Promise<Response> {
   const url = `https://www.reddit.com/r/${sub}/hot.rss?limit=${PER_SUBREDDIT_LIMIT}`;
   return fetch(url, { headers: { "User-Agent": USER_AGENT } });
@@ -65,22 +67,22 @@ async function fetchOnce(sub: string): Promise<Response> {
 
 async function fetchSubreddit(
   parser: RSSParser,
-  sub: string,
+  sub: SubredditConfig,
 ): Promise<RedditPost[]> {
-  let res = await fetchOnce(sub);
+  let res = await fetchOnce(sub.slug);
 
   if (RETRY_STATUS.has(res.status)) {
     const wait = jitterMs();
     console.warn(
-      `[reddit] r/${sub} got ${res.status}; retrying after ${wait}ms`,
+      `[reddit] r/${sub.slug} got ${res.status}; retrying after ${wait}ms`,
     );
     await new Promise((r) => setTimeout(r, wait));
-    res = await fetchOnce(sub);
+    res = await fetchOnce(sub.slug);
   }
 
   if (!res.ok) {
     console.warn(
-      `[reddit] Non-200 response for r/${sub}: ${res.status} ${res.statusText}`,
+      `[reddit] Non-200 response for r/${sub.slug}: ${res.status} ${res.statusText}`,
     );
     return [];
   }
@@ -88,9 +90,14 @@ async function fetchSubreddit(
   const xml = await res.text();
   const feed = await parser.parseString(xml);
 
-  return (feed.items ?? []).map((item) =>
-    normalizeRedditAtomEntry(item as AtomItem, sub),
+  const posts = (feed.items ?? []).map((item) =>
+    normalizeRedditAtomEntry(item as AtomItem, sub.slug),
   );
+
+  // Config-driven AI filter: only subreddits flagged `aiFilter` are narrowed.
+  return sub.aiFilter
+    ? posts.filter((post) => AI_KEYWORD_RE.test(post.title))
+    : posts;
 }
 
 export async function fetchRedditPosts(): Promise<RedditPost[]> {

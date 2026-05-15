@@ -1,32 +1,44 @@
 export const YOUTUBE_CHANNELS = [
-  { name: "Andrej Karpathy", channelId: "UCXUPKJO5MZQN11PqgIvyuvQ", uploadsPlaylistId: "UUXUPKJO5MZQN11PqgIvyuvQ" },
-  { name: "Lex Fridman", channelId: "UCSHZKyawb77ixDdsGog4iWA", uploadsPlaylistId: "UUSHZKyawb77ixDdsGog4iWA" },
-  { name: "Two Minute Papers", channelId: "UCbfYPyITQ-7l4upoX8nvctg", uploadsPlaylistId: "UUbfYPyITQ-7l4upoX8nvctg" },
-  { name: "AI Explained", channelId: "UCNJ1Ymd5yFuUPtn21xtRbbw", uploadsPlaylistId: "UUNJ1Ymd5yFuUPtn21xtRbbw" },
-  { name: "Yannic Kilcher", channelId: "UCZHmQk67mSJgfCCTn7xBfew", uploadsPlaylistId: "UUZHmQk67mSJgfCCTn7xBfew" },
-  { name: "Google DeepMind", channelId: "UCP7jMXSY2xbc3KCAE0MHQ-A", uploadsPlaylistId: "UUP7jMXSY2xbc3KCAE0MHQ-A" },
-  { name: "OpenAI", channelId: "UCXZCJLdBC09xxGZ6gcdrc6A", uploadsPlaylistId: "UUXZCJLdBC09xxGZ6gcdrc6A" },
-  { name: "Fireship", channelId: "UCsBjURrPoezykLs9EqgamOA", uploadsPlaylistId: "UUsBjURrPoezykLs9EqgamOA" },
+  { name: "Nate Herk", channelId: "UC2ojq-nuP8ceeHqiroeKhBA", uploadsPlaylistId: "UU2ojq-nuP8ceeHqiroeKhBA" },
+  { name: "Matthew Berman", channelId: "UCawZsQWqfGSbCI5yjkdVkTA", uploadsPlaylistId: "UUawZsQWqfGSbCI5yjkdVkTA" },
+  { name: "Duncan Rogoff", channelId: "UC37JpWP5PxLSma2lh79HU9A", uploadsPlaylistId: "UU37JpWP5PxLSma2lh79HU9A" },
+  { name: "TechWithTim", channelId: "UC4JX40jDee_tINbkjycV4Sg", uploadsPlaylistId: "UU4JX40jDee_tINbkjycV4Sg" },
+  { name: "Greg Isenberg", channelId: "UCPjNBjflYl0-HQtUvOx0Ibw", uploadsPlaylistId: "UUPjNBjflYl0-HQtUvOx0Ibw" },
 ] as const;
+
+// `aiFilter: true` subreddits are general-purpose, so their posts are
+// keyword-filtered for AI relevance in lib/api/reddit.ts before caching.
+export type SubredditConfig = { slug: string; aiFilter?: boolean };
 
 export const SUBREDDITS = [
-  "MachineLearning",
-  "artificial",
-  "LocalLLaMA",
-  "ChatGPT",
-  "singularity",
-] as const;
+  { slug: "MachineLearning" },
+  { slug: "LocalLLaMA" },
+  { slug: "artificial" },
+  { slug: "singularity" },
+  { slug: "programming", aiFilter: true },
+] as const satisfies readonly SubredditConfig[];
 
+// Numeric X user IDs (the X API v2 /2/users/:id/tweets path needs IDs, not
+// handles). Resolved + name-verified via api.fxtwitter.com, 2026-05-14.
 export const TWITTER_USERS = [
-  { handle: "sama", userId: "3108351" },
-  { handle: "ylecun", userId: "50705664" },
+  // Core research & pioneers
   { handle: "karpathy", userId: "33836629" },
-  // TODO: Look up correct numeric user ID for @DarioAmodei via https://tweeterid.com
-  // { handle: "DarioAmodei", userId: "REPLACE_ME" },
   { handle: "fchollet", userId: "68746721" },
-  { handle: "AnthropicAI", userId: "1353836358901501952" },
-  { handle: "OpenAI", userId: "4398626122" },
-  { handle: "GoogleDeepMind", userId: "4783690002" },
+  { handle: "ylecun", userId: "50705664" },
+  { handle: "AndrewYNg", userId: "216939636" },
+  { handle: "drfeifei", userId: "130745589" },
+  { handle: "demishassabis", userId: "1482581556" },
+  // Implementation & engineering
+  { handle: "rasbt", userId: "865622395" },
+  { handle: "jeremyphoward", userId: "175282603" },
+  { handle: "simonw", userId: "12497" },
+  { handle: "goodside", userId: "16535432" },
+  { handle: "ID_AA_Carmack", userId: "175624200" },
+  // Curators & news
+  { handle: "dair_ai", userId: "889050642903293953" },
+  { handle: "lilianweng", userId: "96999384" },
+  { handle: "_akhaliq", userId: "2465283662" },
+  { handle: "gwern", userId: "17664709" },
 ] as const;
 
 export const RSS_FEEDS = [
@@ -53,5 +65,3 @@ export const CACHE_MAX_AGE = {
   twitter: 10 * 60 * 1000, // 10 minutes
   tenMin: 10 * 60 * 1000, // 10 minutes (hero, trendingRanked)
 } as const;
-
-export const APIFY_ACTOR_ID = "trudax/reddit-scraper-lite";

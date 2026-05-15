@@ -92,7 +92,7 @@ describe("normalizeRedditAtomEntry", () => {
   it("uses pubDate when isoDate is absent", () => {
     const post = normalizeRedditAtomEntry(
       { id: "t3_x", pubDate: "2026-05-01T00:00:00.000Z" },
-      "ChatGPT",
+      "singularity",
     );
     expect(post.createdAt).toBe("2026-05-01T00:00:00.000Z");
   });
@@ -113,11 +113,13 @@ describe("fetchRedditPosts", () => {
   it("returns normalized posts from all 5 subreddits", async () => {
     global.fetch = vi.fn().mockImplementation(async (url: string) => {
       const sub = url.match(/\/r\/(\w+)\//)?.[1] ?? "unknown";
+      // Titles carry an AI keyword so r/programming (aiFilter:true) survives
+      // its keyword filter — this test asserts all 5 subs contribute a post.
       return okResponse(
         atomFeed([
           {
             id: `t3_${sub}1`,
-            title: `${sub} hot post`,
+            title: `${sub} AI hot post`,
             href: `https://www.reddit.com/r/${sub}/comments/${sub}1/x/`,
             author: "/u/poster",
           },
@@ -148,7 +150,7 @@ describe("fetchRedditPosts", () => {
       if (sub === FAILING_SUB) {
         return { ok: false, status: 403, statusText: "Blocked", text: async () => "" } as Response;
       }
-      return okResponse(atomFeed([{ id: `t3_${sub}1`, title: `${sub} post` }]));
+      return okResponse(atomFeed([{ id: `t3_${sub}1`, title: `${sub} AI post` }]));
     });
 
     const posts = await fetchRedditPosts();
@@ -181,7 +183,7 @@ describe("fetchRedditPosts", () => {
         firstCallSeen = true;
         return { ok: false, status: 429, statusText: "Too Many Requests", text: async () => "" } as Response;
       }
-      return okResponse(atomFeed([{ id: `t3_${sub}1`, title: `${sub} post` }]));
+      return okResponse(atomFeed([{ id: `t3_${sub}1`, title: `${sub} AI post` }]));
     });
 
     const promise = fetchRedditPosts();
@@ -221,5 +223,110 @@ describe("fetchRedditPosts", () => {
 
     expect(posts).toEqual([]);
     expect(global.fetch).toHaveBeenCalledTimes(5);
+  });
+
+  // ── aiFilter (config-driven AI-keyword title filter) ─────────────────────
+  // r/programming is the sole SUBREDDITS entry with aiFilter:true.
+
+  // Fetch mock: r/programming returns one post titled `programmingTitle`; every
+  // other subreddit returns one post with an AI-keyword title — so only the
+  // aiFilter branch is under test, the other 4 subs always contribute a post.
+  function aiFilterFetchMock(programmingTitle: string) {
+    return vi.fn().mockImplementation(async (url: string) => {
+      const sub = url.match(/\/r\/(\w+)\//)?.[1] ?? "unknown";
+      const title = sub === "programming" ? programmingTitle : `${sub} AI post`;
+      return okResponse(atomFeed([{ id: `t3_${sub}1`, title }]));
+    });
+  }
+
+  it("drops aiFilter-subreddit posts whose title has no AI keyword", async () => {
+    global.fetch = aiFilterFetchMock("weekly career advice thread");
+
+    const posts = await fetchRedditPosts();
+
+    // programming's lone keyword-free post is filtered out → 4 of 5 subs left
+    expect(posts.length).toBe(4);
+    expect(posts.some((p) => p.subreddit === "programming")).toBe(false);
+  });
+
+  it("keeps aiFilter-subreddit posts with an AI keyword (case-insensitive)", async () => {
+    global.fetch = aiFilterFetchMock(
+      "Shipping a local LLM with GPT-style tooling",
+    );
+
+    const posts = await fetchRedditPosts();
+
+    expect(posts.length).toBe(5);
+    expect(posts.some((p) => p.subreddit === "programming")).toBe(true);
+  });
+
+  it.each(["llm", "ai", "gpt", "claude", "model", "neural", "transformer"])(
+    "keeps an aiFilter-subreddit post when the title contains %s",
+    async (keyword) => {
+      global.fetch = aiFilterFetchMock(`a deep dive on ${keyword} today`);
+
+      const posts = await fetchRedditPosts();
+
+      expect(posts.some((p) => p.subreddit === "programming")).toBe(true);
+    },
+  );
+
+  it("matches plural keyword forms (LLMs, GPTs, models)", async () => {
+    global.fetch = aiFilterFetchMock("Top 5 LLMs compared");
+
+    const posts = await fetchRedditPosts();
+
+    expect(posts.some((p) => p.subreddit === "programming")).toBe(true);
+  });
+
+  it("respects word boundaries — substring-only matches are dropped", async () => {
+    // "rain" and "detail" contain the substring "ai" but not as a whole word.
+    global.fetch = aiFilterFetchMock("Avoiding rain delays in detail");
+
+    const posts = await fetchRedditPosts();
+
+    expect(posts.some((p) => p.subreddit === "programming")).toBe(false);
+  });
+
+  it("filters a mixed feed — keeps AI titles, drops the rest", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      const sub = url.match(/\/r\/(\w+)\//)?.[1] ?? "unknown";
+      if (sub === "programming") {
+        return okResponse(
+          atomFeed([
+            { id: "t3_p1", title: "New transformer paper" },
+            { id: "t3_p2", title: "Garden hose review" },
+            { id: "t3_p3", title: "GPT prompt tips" },
+          ]),
+        );
+      }
+      return okResponse(
+        atomFeed([{ id: `t3_${sub}1`, title: `${sub} AI post` }]),
+      );
+    });
+
+    const posts = await fetchRedditPosts();
+
+    const programmingIds = posts
+      .filter((p) => p.subreddit === "programming")
+      .map((p) => p.id)
+      .sort();
+    expect(programmingIds).toEqual(["p1", "p3"]);
+  });
+
+  it("does not filter subreddits without the aiFilter flag", async () => {
+    // Keyword-free titles everywhere: the 4 non-aiFilter subs keep their post,
+    // only r/programming (aiFilter:true) is narrowed to nothing.
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      const sub = url.match(/\/r\/(\w+)\//)?.[1] ?? "unknown";
+      return okResponse(
+        atomFeed([{ id: `t3_${sub}1`, title: "weekly discussion thread" }]),
+      );
+    });
+
+    const posts = await fetchRedditPosts();
+
+    expect(posts.length).toBe(4);
+    expect(posts.every((p) => p.subreddit !== "programming")).toBe(true);
   });
 });
