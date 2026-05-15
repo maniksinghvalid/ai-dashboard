@@ -154,10 +154,10 @@ Plans:
 - [x] 04-01-PLAN.md — Wave 0: install @testing-library/react + @testing-library/dom + jsdom; extend vitest.config.ts include glob to .tsx
 - [x] 04-02-PLAN.md — Wave 1: add `MAX_FEED_ITEMS = 15` export to lib/constants.ts + lib/constants.test.ts assertion (D2)
 - [x] 04-03-PLAN.md — Wave 1: extend WidgetCard.tsx with scrollable + maxBodyHeight + scroll-aware fade + a11y + group class; co-author WidgetCard.test.tsx (D3/D4/D5/D8)
-- [ ] 04-04-PLAN.md — Wave 2: YouTubeWidget rewire (slice + WidgetCard wiring) + YouTubeWidget.test.tsx (D1 + D9)
-- [ ] 04-05-PLAN.md — Wave 2: RedditWidget rewire + RedditWidget.test.tsx (D1)
-- [ ] 04-06-PLAN.md — Wave 2: XFeedWidget rewire + XFeedWidget.test.tsx (D1)
-- [ ] 04-07-PLAN.md — Wave 2: NewsWidget rewire + NewsWidget.test.tsx (D1 + D9)
+- [x] 04-04-PLAN.md — Wave 2: YouTubeWidget rewire (slice + WidgetCard wiring) + YouTubeWidget.test.tsx (D1 + D9)
+- [x] 04-05-PLAN.md — Wave 2: RedditWidget rewire + RedditWidget.test.tsx (D1)
+- [x] 04-06-PLAN.md — Wave 2: XFeedWidget rewire + XFeedWidget.test.tsx (D1)
+- [x] 04-07-PLAN.md — Wave 2: NewsWidget rewire + NewsWidget.test.tsx (D1 + D9)
 - [ ] 04-08-PLAN.md — Wave 2: `.scrollbar-thin` utility in app/globals.css (webkit + Firefox) + phase-end layer-discipline gate (D6 + SC-1 layer invariant)
 
 **Wave structure** (for parallel execution):
