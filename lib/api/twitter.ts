@@ -1,6 +1,7 @@
 import type { Tweet } from "@/lib/types";
 import { TWITTER_USERS, CACHE_KEYS } from "@/lib/constants";
 import { cacheSet } from "@/lib/cache/helpers";
+import { RETRY_STATUS, jitterMs } from "@/lib/api/resilience";
 
 interface XTweetData {
   id: string;
@@ -25,17 +26,12 @@ interface XApiResponse {
   includes?: { users?: XUserData[] };
 }
 
-const RETRY_STATUS = new Set([429, 503]);
-
 // Fetch users in sequential batches (not one wide burst) and allow one retry
-// per user on a transient 429/503 — resilience parity with the Reddit fetcher.
-// The X API budget measured ~10k requests/window in diagnostics, so this is
-// defensive hygiene against transient failures, not a rate-limit necessity.
+// per user on a transient 429/503 — resilience parity with the Reddit fetcher
+// (RETRY_STATUS / jitterMs are shared from lib/api/resilience.ts). The X API
+// budget measured ~10k requests/window in diagnostics, so this is defensive
+// hygiene against transient failures, not a rate-limit necessity.
 const BATCH_SIZE = 5;
-
-function jitterMs(): number {
-  return 2000 + Math.floor(Math.random() * 3000);
-}
 
 async function fetchUserTimeline(
   user: { handle: string; userId: string },

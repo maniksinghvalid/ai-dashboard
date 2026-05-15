@@ -2,6 +2,7 @@ import RSSParser from "rss-parser";
 import type { RedditPost } from "@/lib/types";
 import { SUBREDDITS, CACHE_KEYS, type SubredditConfig } from "@/lib/constants";
 import { cacheSet } from "@/lib/cache/helpers";
+import { RETRY_STATUS, jitterMs } from "@/lib/api/resilience";
 
 // Reddit's anonymous JSON API (www.reddit.com/r/*/hot.json) is 403-blocked from
 // datacenter IPs (Vercel functions). The .rss (Atom) feed is a separate
@@ -57,12 +58,6 @@ export function normalizeRedditAtomEntry(
     url: item.link ?? `https://www.reddit.com/r/${subreddit}/`,
     createdAt: item.isoDate ?? item.pubDate ?? new Date().toISOString(),
   };
-}
-
-const RETRY_STATUS = new Set([429, 503]);
-
-function jitterMs(): number {
-  return 2000 + Math.floor(Math.random() * 3000);
 }
 
 async function fetchOnce(sub: string): Promise<Response> {
