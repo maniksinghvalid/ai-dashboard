@@ -1,4 +1,5 @@
 import type { RedditPost } from "@/lib/types";
+import { MAX_FEED_ITEMS } from "@/lib/constants";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { WidgetSkeleton } from "@/components/widgets/WidgetSkeleton";
 import { formatRelativeTime } from "@/lib/utils/format";
@@ -45,6 +46,16 @@ export function RedditWidget({
       title="Reddit"
       badge="r/ML · r/AI"
       stale={stale}
+      scrollable={
+        Array.isArray(posts) && posts.length > 0 && !isLoading && !error
+          ? true
+          : undefined
+      }
+      maxBodyHeight={
+        Array.isArray(posts) && posts.length > 0 && !isLoading && !error
+          ? "max-h-[320px]"
+          : undefined
+      }
     >
       {isLoading ? (
         <WidgetSkeleton lines={3} />
@@ -58,7 +69,7 @@ export function RedditWidget({
         </p>
       ) : (
         <div>
-          {posts.slice(0, 3).map((post) => (
+          {posts.slice(0, MAX_FEED_ITEMS).map((post) => (
             // post.url always has a value (normalizer falls back), so it's a
             // safe key even in the unlikely event an Atom entry had no <id>.
             <PostRow key={post.id || post.url} post={post} />
