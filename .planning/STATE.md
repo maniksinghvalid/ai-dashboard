@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: executing
+stopped_at: ROADMAP.md + STATE.md + PROJECT.md + REQUIREMENTS.md written from intel ingest. Ready for `/gsd-plan-phase 1`.
+last_updated: "2026-05-15T04:02:10.034Z"
+last_activity: 2026-05-15 -- Phase 04 execution started
+progress:
+  total_phases: 4
+  completed_phases: 2
+  total_plans: 25
+  completed_plans: 6
+  percent: 24
+---
+
 # Project State
 
 ## Project Reference
@@ -5,20 +21,21 @@
 See: .planning/PROJECT.md (updated 2026-05-11)
 
 **Core value:** Real-time AI industry dashboard — the SCRUM-38 phase added the intelligence layer (sentiment engine, true velocity trending, cross-platform hero, spike alerts, Vitest) on top of the already-shipped data layer (SCRUM-36) and UI shell (SCRUM-37). Phase 2 (Reddit Free Fallback) replaced the failing Apify Reddit scraper with Reddit's free JSON API. Both phases shipped 2026-05-13 and were retroactively reconciled into GSD state via /gsd-import + /superpowers:requesting-code-review.
-**Current focus:** No active phase. Phase 1 and Phase 2 both complete (retroactive close-out 2026-05-13).
+**Current focus:** Phase 04 — scrollable-feed-cards-scrum-49
 
 ## Current Position
 
-Phase: complete (1 of 2 retroactively closed; 2 of 2 retroactively closed)
-Plan: 11/11 in Phase 1, 1/1 in Phase 2
-Status: All planned work shipped. Two locked-decision amendments (D8 amending D7, D9 amending F3) accepted during Phase 1 close-out and recorded in PROJECT.md.
-Last activity: 2026-05-13 — /superpowers:requesting-code-review validated Phase 1 against the 11 plans. Three Critical findings surfaced: D7 model drift (Llama-3.3-70B vs cardiffnlp), F3 cron-ceiling drift (60 vs 30), and missing Sentry capture on sentiment 401. User chose to amend D7→D8 and F3→D9 (codifying the runtime substitutions), and fix the Sentry capture directly. Phase 1 retroactively marked complete.
+Phase: 04 (scrollable-feed-cards-scrum-49) — EXECUTING
+Plan: 1 of 8
+Status: Executing Phase 04
+Last activity: 2026-05-15 -- Phase 04 execution started
 
 Progress: [██████████] 100% (Phase 1 + Phase 2 retroactively closed 2026-05-13)
 
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 0
 - Average duration: n/a
 - Total execution time: 0.0 hours
@@ -31,6 +48,7 @@ Progress: [██████████] 100% (Phase 1 + Phase 2 retroactively
 | 2. Reddit Free Fallback | 1/1 (retroactive) | - | - |
 
 **Recent Trend:**
+
 - Last 5 plans: n/a
 - Trend: n/a (no plans completed yet)
 
@@ -43,6 +61,7 @@ Progress: [██████████] 100% (Phase 1 + Phase 2 retroactively
 Full decision log lives in PROJECT.md `<decisions>` block. All 11 entries (D1–D7 + F1–F4) are **locked** and must not be re-debated by downstream planners.
 
 Recent decisions affecting current work:
+
 - **D1 / D7 / F1:** Together AI is the sentiment provider with a hard `SENTIMENT_DAILY_CHAR_BUDGET` circuit breaker; `HUGGINGFACE_API_TOKEN` is explicitly forbidden.
 - **D2:** Single Redis ZSET per `(topic, platform)`, 96-slot cap; no snapshot rotation. Feeds both 1h velocity and 24h alert baseline.
 - **D3:** Hero threshold relaxed to top-3 on all 3 platforms (documented inline in `app/api/hero/route.ts`).
