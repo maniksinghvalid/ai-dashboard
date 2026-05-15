@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, screen, fireEvent, cleanup, act } from "@testing-library/react";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 
 afterEach(cleanup);
@@ -157,5 +157,126 @@ describe("WidgetCard scrollable contract (D3/D4/D5/D8)", () => {
     await Promise.resolve();
 
     expect(container.querySelector('[aria-hidden="true"]')).toBeNull();
+  });
+});
+
+describe("WidgetCard pagination extensions (SCRUM-50)", () => {
+  it("renders the `footer` slot below the body, inside the card border, when provided", () => {
+    const { container } = render(
+      <WidgetCard
+        icon="X"
+        iconBg="#000"
+        title="YouTube"
+        scrollable
+        maxBodyHeight="max-h-[320px]"
+        footer={<div data-testid="footer-marker">FOOTER</div>}
+      >
+        <div data-testid="body-marker">BODY</div>
+      </WidgetCard>,
+    );
+
+    const footer = screen.getByTestId("footer-marker");
+    const body = screen.getByTestId("body-marker");
+    expect(footer).toBeTruthy();
+    expect(body).toBeTruthy();
+
+    // The footer must come *after* the scrollable region in document order so
+    // it renders at the bottom of the card.
+    const region = screen.getByRole("region");
+    expect(
+      region.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    // The card root must contain both the region and the footer (footer is
+    // inside the card border, not a separate sibling).
+    const cardRoot = container.querySelector("div.group");
+    expect(cardRoot?.contains(region)).toBe(true);
+    expect(cardRoot?.contains(footer)).toBe(true);
+  });
+
+  it("omits the footer slot entirely when no `footer` prop is passed", () => {
+    const { container } = render(
+      <WidgetCard
+        icon="X"
+        iconBg="#000"
+        title="YouTube"
+        scrollable
+        maxBodyHeight="max-h-[320px]"
+      >
+        <div>BODY</div>
+      </WidgetCard>,
+    );
+
+    expect(container.querySelector('[data-testid="footer-marker"]')).toBeNull();
+  });
+
+  it("on paginationKey change: fades the body via data-paging, then resets scrollTop and clears the attribute", () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = render(
+        <WidgetCard
+          icon="X"
+          iconBg="#000"
+          title="YouTube"
+          scrollable
+          maxBodyHeight="max-h-[320px]"
+          paginationKey={1}
+        >
+          <div style={{ height: 1000 }}>page 1</div>
+        </WidgetCard>,
+      );
+
+      const region = screen.getByRole("region");
+      // Pre-populate scroll position so we can verify the reset
+      Object.defineProperty(region, "scrollTop", { value: 250, configurable: true, writable: true });
+      expect((region as HTMLElement).scrollTop).toBe(250);
+
+      // First mount must NOT trigger the fade (initial render shouldn't flash)
+      expect(region.getAttribute("data-paging")).not.toBe("out");
+
+      // Change the key — simulating Next ›
+      rerender(
+        <WidgetCard
+          icon="X"
+          iconBg="#000"
+          title="YouTube"
+          scrollable
+          maxBodyHeight="max-h-[320px]"
+          paginationKey={2}
+        >
+          <div style={{ height: 1000 }}>page 2</div>
+        </WidgetCard>,
+      );
+
+      // After the effect runs, region should be in the "paging out" state
+      expect(region.getAttribute("data-paging")).toBe("out");
+
+      // Advance past the 120ms fade timer; effect should reset scroll + flip state
+      act(() => {
+        vi.advanceTimersByTime(120);
+      });
+      expect((region as HTMLElement).scrollTop).toBe(0);
+      expect(region.getAttribute("data-paging")).not.toBe("out");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("scrollable region carries the transition-opacity class so paging fades render", () => {
+    render(
+      <WidgetCard
+        icon="X"
+        iconBg="#000"
+        title="YouTube"
+        scrollable
+        maxBodyHeight="max-h-[320px]"
+        paginationKey={1}
+      >
+        <div>item</div>
+      </WidgetCard>,
+    );
+
+    const region = screen.getByRole("region");
+    expect(region.className).toContain("transition-opacity");
   });
 });

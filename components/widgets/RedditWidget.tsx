@@ -1,7 +1,9 @@
 import type { RedditPost } from "@/lib/types";
-import { MAX_FEED_ITEMS } from "@/lib/constants";
+import { PAGE_SIZE } from "@/lib/constants";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { WidgetSkeleton } from "@/components/widgets/WidgetSkeleton";
+import { PaginationFooter } from "@/components/ui/PaginationFooter";
+import { usePagination } from "@/lib/hooks/usePagination";
 import { formatRelativeTime } from "@/lib/utils/format";
 
 // Reddit data now comes from the .rss (Atom) feed, which carries no score or
@@ -39,6 +41,20 @@ export function RedditWidget({
   isLoading: boolean;
   error: Error | null;
 }) {
+  const isPopulated =
+    Array.isArray(posts) && posts.length > 0 && !isLoading && !error;
+  const {
+    pageItems,
+    page,
+    totalPages,
+    hasPrev,
+    hasNext,
+    goPrev,
+    goNext,
+    rangeLabel,
+    showFooter,
+  } = usePagination(posts ?? [], PAGE_SIZE, (p) => p.id || p.url);
+
   return (
     <WidgetCard
       icon="●"
@@ -46,15 +62,22 @@ export function RedditWidget({
       title="Reddit"
       badge="r/ML · r/AI"
       stale={stale}
-      scrollable={
-        Array.isArray(posts) && posts.length > 0 && !isLoading && !error
-          ? true
-          : undefined
-      }
-      maxBodyHeight={
-        Array.isArray(posts) && posts.length > 0 && !isLoading && !error
-          ? "max-h-[320px]"
-          : undefined
+      scrollable={isPopulated ? true : undefined}
+      maxBodyHeight={isPopulated ? "max-h-[320px]" : undefined}
+      paginationKey={isPopulated ? page : undefined}
+      footer={
+        isPopulated ? (
+          <PaginationFooter
+            page={page}
+            totalPages={totalPages}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
+            onPrev={goPrev}
+            onNext={goNext}
+            rangeLabel={rangeLabel}
+            hidden={!showFooter}
+          />
+        ) : undefined
       }
     >
       {isLoading ? (
@@ -69,7 +92,7 @@ export function RedditWidget({
         </p>
       ) : (
         <div>
-          {posts.slice(0, MAX_FEED_ITEMS).map((post) => (
+          {pageItems.map((post) => (
             // post.url always has a value (normalizer falls back), so it's a
             // safe key even in the unlikely event an Atom entry had no <id>.
             <PostRow key={post.id || post.url} post={post} />
