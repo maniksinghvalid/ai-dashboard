@@ -158,7 +158,7 @@ Plans:
 - [x] 04-05-PLAN.md — Wave 2: RedditWidget rewire + RedditWidget.test.tsx (D1)
 - [x] 04-06-PLAN.md — Wave 2: XFeedWidget rewire + XFeedWidget.test.tsx (D1)
 - [x] 04-07-PLAN.md — Wave 2: NewsWidget rewire + NewsWidget.test.tsx (D1 + D9)
-- [ ] 04-08-PLAN.md — Wave 2: `.scrollbar-thin` utility in app/globals.css (webkit + Firefox) + phase-end layer-discipline gate (D6 + SC-1 layer invariant)
+- [x] 04-08-PLAN.md — Wave 2: `.scrollbar-thin` utility in app/globals.css (webkit + Firefox) + phase-end layer-discipline gate (D6 + SC-1 layer invariant)
 
 **Wave structure** (for parallel execution):
 - **Wave 0** (devDep + config foundation, must finish before Wave 1): 04-01
