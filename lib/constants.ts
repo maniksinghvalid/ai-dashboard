@@ -93,3 +93,9 @@ export const CACHE_MAX_AGE = {
 // NOT in the fetchers — lib/api/trending.ts and lib/api/hero.ts consume the
 // full pre-slice arrays. Do not import this in lib/api/*.
 export const MAX_FEED_ITEMS = 15;
+
+// SCRUM-50: Items per page in the feed widgets' client-side pagination.
+// Must stay equal to MAX_FEED_ITEMS — the scrollable card body is sized
+// for exactly one page of items, so PAGE_SIZE > MAX_FEED_ITEMS would
+// overflow the visible card region.
+export const PAGE_SIZE = MAX_FEED_ITEMS;
