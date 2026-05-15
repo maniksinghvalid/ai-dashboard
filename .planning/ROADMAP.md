@@ -24,6 +24,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: SCRUM-38 Implementation** - Ship the sentiment engine, true velocity trending, cross-platform hero, spike alerts, Vitest, and the cron DAG / dashboard wiring that activates them **(shipped — commits `e28ca7e` "feat(01): ship SCRUM-38 intelligence layer" + `fa5c49f` review fixes + `dd9b6dd` "fix(sentiment): repair Together AI integration and cron summary truthfulness"; retroactively marked complete 2026-05-13 after /superpowers:requesting-code-review validation — see Phase 1 close-out note below)**
 - [x] **Phase 2: Reddit Free Fallback** - Replace the failing Apify-based Reddit scraper with Reddit's free public JSON API; restore Reddit data flow into the cron DAG and unblock cross-platform hero promotion **(shipped 2026-05-13 — commits `66b04aa` + `b404c97`; plan + summary backfilled retroactively via /gsd-import)**
 - [ ] **Phase 3: Caching & Refresh Hardening** - Close the four compounding failure modes surfaced by the 2026-05-13 system-architect review: truthful cache-write reporting (`summary: "ok"` currently lies — only means the fetcher resolved, not that Redis was written), a distributed cron lock (no protection against concurrent QStash-retry runs), an atomic sentiment budget check (non-atomic read-then-write double-spends quota), and removal of the dead Vercel daily cron (401s silently behind Deployment Protection — false-signal noise during incident response)
+- [ ] **Phase 4: Scrollable Feed Cards (SCRUM-49)** - Render up to 15 items in each of the four feed widgets (YouTube, Reddit, X/Twitter, News) inside a scrollable card body with a bottom-fade cue. Cap is enforced at the widget render layer only — fetchers and the trending/velocity pipeline are unchanged. Refined from the original SCRUM-49 draft after a 2026-05-14 codebase validation pass (see ticket history for the rewrite rationale)
 
 ## Phase Details
 
@@ -134,16 +135,52 @@ Plans:
 - **In scope as planner discretion (mooted/folded by the above):** the ZSET member-collision precision bug (system-architect Finding 6) is mooted once SC-2's lock lands — no separate criterion. Reddit per-subreddit silent `[]` returns (Finding 9) are partially surfaced by SC-1's truthful reporting; deeper per-subreddit accounting is discretion, not a gate.
 - **Explicitly out of scope:** the `maxDuration` budget-collision risk (system-architect Finding 2 — sentiment's 35s timeout vs the 60s function ceiling) is a real High finding but is a *timeout-tuning / tier-restructure* concern, not a caching-correctness one. Carry it to a separate phase rather than bundling — it has a different blast radius and testing strategy. Stale-fallback masking permanent upstream death (Finding 4) is a UX/observability concern deferred to a monitoring phase.
 
+### Phase 4: Scrollable Feed Cards (SCRUM-49)
+**Goal**: Render up to 15 items in each of the four feed widgets (YouTube, Reddit, X/Twitter, News) inside a scrollable card body with a bottom-fade cue when more content is below the fold. The cap is enforced at the widget render layer only; fetchers and the trending/velocity pipeline are unchanged. The 3-column dashboard grid (`lg:grid-cols-2 xl:grid-cols-[280px_1fr_280px]`) must remain visually balanced at ≥1280px viewport.
+**Depends on**: Phase 1 (UI shell + widget contract) and SCRUM-48 (curated sources, merged `0d0d928` 2026-05-14). Independent of Phase 2 and Phase 3.
+**Requirements**: None mapped (SCRUM-49 is a UX enhancement on the shipped UI shell — not in the v1 requirements set in `REQUIREMENTS.md`). Source: SCRUM-49 (refined 2026-05-14 against the live codebase).
+**Success Criteria** (what must be TRUE):
+  1. **15-item cap is widget-layer:** each of `YouTubeWidget.tsx`, `RedditWidget.tsx`, `XFeedWidget.tsx`, `NewsWidget.tsx` renders `data.slice(0, MAX_FEED_ITEMS)` where `MAX_FEED_ITEMS = 15` is exported from `lib/constants.ts`. No hardcoded `15` in any widget. The four fetchers (`fetchYouTubeVideos`, `fetchRedditPosts`, `fetchTweets`, `fetchNews`) are unchanged — `git diff --stat` shows zero lines touched in `lib/api/youtube.ts`, `lib/api/reddit.ts`, `lib/api/twitter.ts`, `lib/api/news.ts`.
+  2. **WidgetCard supports scrollable bodies:** `components/widgets/WidgetCard.tsx` accepts optional `scrollable?: boolean` and `maxBodyHeight?: string` props. When `scrollable` is true, the body wrapper has `relative ${maxBodyHeight} overflow-y-auto scrollbar-thin`, receives `tabIndex={0}`, `role="region"`, and an `aria-label` derived from the `title` prop, and renders an absolutely-positioned bottom-fade sibling (`aria-hidden="true"`, `pointer-events-none`, `bg-gradient-to-t from-[var(--surface)] to-transparent`).
+  3. **Bottom-fade is scroll-aware:** the bottom-fade overlay is hidden when the user scrolls to the bottom of the container and visible otherwise. A client effect / `scrollend` handler toggles its visibility — no permanent fade obscuring the last item.
+  4. **Scrollbar styling is Tailwind-native:** a `.scrollbar-thin` utility class is added to `app/globals.css` covering both `::-webkit-scrollbar` (Chrome/Safari, 4px wide, rounded, themed via existing surface tokens) and Firefox (`scrollbar-width: thin; scrollbar-color: var(--surface-2) transparent`). Scrollbar visibility is hover-scoped on the card.
+  5. **Three-column grid stays balanced:** at viewport widths ≥1280px the left, center, and right columns do not visibly diverge in height by more than the existing column-balance tolerance of the unmodified live dashboard. `lib/api/trending.ts` and `lib/api/hero.ts` continue to receive the full pre-slice arrays (no regressions in trending velocity or hero promotion).
+  6. **Tests + types green:** `npm test` exits 0; `npx tsc --noEmit && npm run lint` clean; new render-time tests cover the `scrollable` WidgetCard branch and the per-widget slice cap.
+  7. **Cross-browser:** the scrollable card body and bottom-fade render correctly in Chrome, Firefox, and Safari (Firefox uses native thin scrollbar via `scrollbar-width`).
+**Plans**: 8 plans (see below — produced by `/gsd-plan-phase 4`)
+**UI hint**: yes
+
+Plans:
+- [x] 04-01-PLAN.md — Wave 0: install @testing-library/react + @testing-library/dom + jsdom; extend vitest.config.ts include glob to .tsx
+- [x] 04-02-PLAN.md — Wave 1: add `MAX_FEED_ITEMS = 15` export to lib/constants.ts + lib/constants.test.ts assertion (D2)
+- [x] 04-03-PLAN.md — Wave 1: extend WidgetCard.tsx with scrollable + maxBodyHeight + scroll-aware fade + a11y + group class; co-author WidgetCard.test.tsx (D3/D4/D5/D8)
+- [x] 04-04-PLAN.md — Wave 2: YouTubeWidget rewire (slice + WidgetCard wiring) + YouTubeWidget.test.tsx (D1 + D9)
+- [x] 04-05-PLAN.md — Wave 2: RedditWidget rewire + RedditWidget.test.tsx (D1)
+- [x] 04-06-PLAN.md — Wave 2: XFeedWidget rewire + XFeedWidget.test.tsx (D1)
+- [x] 04-07-PLAN.md — Wave 2: NewsWidget rewire + NewsWidget.test.tsx (D1 + D9)
+- [x] 04-08-PLAN.md — Wave 2: `.scrollbar-thin` utility in app/globals.css (webkit + Firefox) + phase-end layer-discipline gate (D6 + SC-1 layer invariant)
+
+**Wave structure** (for parallel execution):
+- **Wave 0** (devDep + config foundation, must finish before Wave 1): 04-01
+- **Wave 1** (constants + WidgetCard extension — parallel within wave; both depend only on Wave 0): 04-02, 04-03
+- **Wave 2** (per-widget rewires + globals.css + final gate — all four feed-widget plans are parallel; 04-08 depends on 03+04+05+06+07): 04-04, 04-05, 04-06, 04-07, 04-08
+
+**Out of scope (explicit, deferred to separate work):**
+- Fetcher changes (would degrade trending/velocity which consume full arrays).
+- Scroll behavior on Hero / Trending / Sentiment widgets — they are not feed widgets.
+- A "{n} new since last cache refresh" diff badge — no underlying snapshot/diff mechanism exists; this is net-new work and out of scope here.
+
 ## Progress
 
 **Execution Order:**
-Phase 1 → Phase 2 → Phase 3. No decimals planned. Phase 2 imported post-roadmap from operational urgency (Apify failing in prod). Phase 3 added 2026-05-13 from a system-architect architecture review.
+Phase 1 → Phase 2 → Phase 3 → Phase 4. No decimals planned. Phase 2 imported post-roadmap from operational urgency (Apify failing in prod). Phase 3 added 2026-05-13 from a system-architect architecture review. Phase 4 added 2026-05-14 from SCRUM-49 (Jira story refined against the codebase before planning).
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. SCRUM-38 Implementation | 11/11 (retroactive) | **Complete with D8/D9 amendments** | 2026-05-13 (commits `e28ca7e` + `fa5c49f` + `dd9b6dd`) |
 | 2. Reddit Free Fallback | 1/1 (retroactive) | **Complete (retroactive import)** | 2026-05-13 (commits `66b04aa` + `b404c97`) |
 | 3. Caching & Refresh Hardening | 0/4 | **Planned** | — |
+| 4. Scrollable Feed Cards (SCRUM-49) | 0/8 | **Planned** | — |
 
 ---
 

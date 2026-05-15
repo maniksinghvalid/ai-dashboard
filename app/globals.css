@@ -59,4 +59,23 @@ body::before {
   .text-balance {
     text-wrap: balance;
   }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface2) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--surface2);
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+  .group:hover .scrollbar-thin::-webkit-scrollbar-thumb {
+    opacity: 1;
+  }
 }

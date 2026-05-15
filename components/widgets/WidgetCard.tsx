@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export function WidgetCard({
   icon,
@@ -6,6 +6,8 @@ export function WidgetCard({
   title,
   badge,
   stale = false,
+  scrollable,
+  maxBodyHeight,
   children,
 }: {
   icon: ReactNode;
@@ -13,10 +15,26 @@ export function WidgetCard({
   title: string;
   badge?: string;
   stale?: boolean;
+  scrollable?: boolean;
+  maxBodyHeight?: string;
   children: ReactNode;
 }) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [atBottom, setAtBottom] = useState(false);
+
+  useEffect(() => {
+    if (!scrollable) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const check = () =>
+      setAtBottom(el.scrollTop + el.clientHeight >= el.scrollHeight - 1);
+    check();
+    el.addEventListener("scroll", check, { passive: true });
+    return () => el.removeEventListener("scroll", check);
+  }, [scrollable]);
+
   return (
-    <div className="overflow-hidden rounded-[14px] border border-[--border] bg-surface">
+    <div className="group overflow-hidden rounded-[14px] border border-[--border] bg-surface">
       <div className="flex items-center justify-between border-b border-[--border] px-3.5 py-2.5">
         <div className="flex items-center gap-[7px] font-[family-name:var(--font-space-mono)] text-[11px] font-bold uppercase tracking-[1px] text-muted">
           <div
@@ -40,7 +58,25 @@ export function WidgetCard({
           )}
         </div>
       </div>
-      <div className="px-3.5 py-2.5">{children}</div>
+      {scrollable ? (
+        <div
+          ref={scrollRef}
+          tabIndex={0}
+          role="region"
+          aria-label={`${title} feed, scrollable`}
+          className={`relative ${maxBodyHeight ?? "max-h-[320px]"} overflow-y-auto scrollbar-thin px-3.5 py-2.5 outline-none focus-visible:ring-1 focus-visible:ring-accent focus-visible:ring-inset`}
+        >
+          {children}
+          {!atBottom && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-0 left-0 right-0 h-9 bg-gradient-to-t from-[var(--surface)] to-transparent"
+            />
+          )}
+        </div>
+      ) : (
+        <div className="px-3.5 py-2.5">{children}</div>
+      )}
     </div>
   );
 }

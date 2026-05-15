@@ -1,4 +1,5 @@
 import type { Tweet } from "@/lib/types";
+import { MAX_FEED_ITEMS } from "@/lib/constants";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { WidgetSkeleton } from "@/components/widgets/WidgetSkeleton";
 
@@ -85,6 +86,8 @@ export function XFeedWidget({
       title="X / Twitter"
       badge="Live feed"
       stale={stale}
+      scrollable={Array.isArray(tweets) && tweets.length > 0 && !isLoading && !error ? true : undefined}
+      maxBodyHeight={Array.isArray(tweets) && tweets.length > 0 && !isLoading && !error ? "max-h-[320px]" : undefined}
     >
       {isLoading ? (
         <WidgetSkeleton lines={4} />
@@ -98,7 +101,7 @@ export function XFeedWidget({
         </p>
       ) : (
         <div>
-          {tweets.slice(0, 4).map((tweet, i) => (
+          {tweets.slice(0, MAX_FEED_ITEMS).map((tweet, i) => (
             <TweetCard key={tweet.id} tweet={tweet} index={i} />
           ))}
         </div>

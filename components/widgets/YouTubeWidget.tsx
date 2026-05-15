@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { Video } from "@/lib/types";
+import { MAX_FEED_ITEMS } from "@/lib/constants";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { WidgetSkeleton } from "@/components/widgets/WidgetSkeleton";
 import { formatRelativeTime } from "@/lib/utils/format";
@@ -58,6 +59,8 @@ export function YouTubeWidget({
   error: Error | null;
 }) {
   const count = videos?.length ?? 0;
+  const isPopulated =
+    Array.isArray(videos) && videos.length > 0 && !isLoading && !error;
 
   return (
     <WidgetCard
@@ -66,6 +69,8 @@ export function YouTubeWidget({
       title="YouTube"
       badge={count > 0 ? `${count} new` : undefined}
       stale={stale}
+      scrollable={isPopulated ? true : undefined}
+      maxBodyHeight={isPopulated ? "max-h-[320px]" : undefined}
     >
       {isLoading ? (
         <WidgetSkeleton lines={4} />
@@ -79,7 +84,7 @@ export function YouTubeWidget({
         </p>
       ) : (
         <div>
-          {videos.slice(0, 4).map((video) => (
+          {videos.slice(0, MAX_FEED_ITEMS).map((video) => (
             <VideoItem key={video.id} video={video} />
           ))}
         </div>
