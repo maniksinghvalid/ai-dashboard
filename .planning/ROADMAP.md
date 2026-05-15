@@ -151,7 +151,7 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 04-01-PLAN.md — Wave 0: install @testing-library/react + @testing-library/dom + jsdom; extend vitest.config.ts include glob to .tsx
+- [x] 04-01-PLAN.md — Wave 0: install @testing-library/react + @testing-library/dom + jsdom; extend vitest.config.ts include glob to .tsx
 - [ ] 04-02-PLAN.md — Wave 1: add `MAX_FEED_ITEMS = 15` export to lib/constants.ts + lib/constants.test.ts assertion (D2)
 - [ ] 04-03-PLAN.md — Wave 1: extend WidgetCard.tsx with scrollable + maxBodyHeight + scroll-aware fade + a11y + group class; co-author WidgetCard.test.tsx (D3/D4/D5/D8)
 - [ ] 04-04-PLAN.md — Wave 2: YouTubeWidget rewire (slice + WidgetCard wiring) + YouTubeWidget.test.tsx (D1 + D9)
