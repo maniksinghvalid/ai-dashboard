@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SUBREDDITS, TWITTER_USERS, YOUTUBE_CHANNELS } from "@/lib/constants";
+import { MAX_FEED_ITEMS, SUBREDDITS, TWITTER_USERS, YOUTUBE_CHANNELS } from "@/lib/constants";
 
 // Pure-data guards for the curated source lists. These catch the silent
 // footguns: an X handle merged without its numeric userId returns zero tweets,
@@ -84,5 +84,18 @@ describe("YOUTUBE_CHANNELS", () => {
   it("has no duplicate channelIds", () => {
     const ids = YOUTUBE_CHANNELS.map((c) => c.channelId);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("MAX_FEED_ITEMS", () => {
+  // Locked at 15 by CONTEXT.md D2. Changing this number is a deliberate scope
+  // decision — update the assertion when the cap legitimately changes.
+  it("equals 15", () => {
+    expect(MAX_FEED_ITEMS).toBe(15);
+  });
+
+  it("is a positive integer", () => {
+    expect(Number.isInteger(MAX_FEED_ITEMS)).toBe(true);
+    expect(MAX_FEED_ITEMS).toBeGreaterThan(0);
   });
 });

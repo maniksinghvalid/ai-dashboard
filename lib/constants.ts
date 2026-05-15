@@ -87,3 +87,9 @@ export const CACHE_MAX_AGE = {
   twitter: 10 * 60 * 1000, // 10 minutes
   tenMin: 10 * 60 * 1000, // 10 minutes (hero, trendingRanked)
 } as const;
+
+// SCRUM-49 (D2): Per-widget render cap for the four feed widgets
+// (YouTube, Reddit, X/Twitter, News). Enforced at the widget render layer,
+// NOT in the fetchers — lib/api/trending.ts and lib/api/hero.ts consume the
+// full pre-slice arrays. Do not import this in lib/api/*.
+export const MAX_FEED_ITEMS = 15;
