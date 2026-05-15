@@ -147,8 +147,23 @@ Plans:
   5. **Three-column grid stays balanced:** at viewport widths ≥1280px the left, center, and right columns do not visibly diverge in height by more than the existing column-balance tolerance of the unmodified live dashboard. `lib/api/trending.ts` and `lib/api/hero.ts` continue to receive the full pre-slice arrays (no regressions in trending velocity or hero promotion).
   6. **Tests + types green:** `npm test` exits 0; `npx tsc --noEmit && npm run lint` clean; new render-time tests cover the `scrollable` WidgetCard branch and the per-widget slice cap.
   7. **Cross-browser:** the scrollable card body and bottom-fade render correctly in Chrome, Firefox, and Safari (Firefox uses native thin scrollbar via `scrollbar-width`).
-**Plans**: TBD — produced by `/gsd-plan-phase 4`.
+**Plans**: 8 plans (see below — produced by `/gsd-plan-phase 4`)
 **UI hint**: yes
+
+Plans:
+- [ ] 04-01-PLAN.md — Wave 0: install @testing-library/react + @testing-library/dom + jsdom; extend vitest.config.ts include glob to .tsx
+- [ ] 04-02-PLAN.md — Wave 1: add `MAX_FEED_ITEMS = 15` export to lib/constants.ts + lib/constants.test.ts assertion (D2)
+- [ ] 04-03-PLAN.md — Wave 1: extend WidgetCard.tsx with scrollable + maxBodyHeight + scroll-aware fade + a11y + group class; co-author WidgetCard.test.tsx (D3/D4/D5/D8)
+- [ ] 04-04-PLAN.md — Wave 2: YouTubeWidget rewire (slice + WidgetCard wiring) + YouTubeWidget.test.tsx (D1 + D9)
+- [ ] 04-05-PLAN.md — Wave 2: RedditWidget rewire + RedditWidget.test.tsx (D1)
+- [ ] 04-06-PLAN.md — Wave 2: XFeedWidget rewire + XFeedWidget.test.tsx (D1)
+- [ ] 04-07-PLAN.md — Wave 2: NewsWidget rewire + NewsWidget.test.tsx (D1 + D9)
+- [ ] 04-08-PLAN.md — Wave 2: `.scrollbar-thin` utility in app/globals.css (webkit + Firefox) + phase-end layer-discipline gate (D6 + SC-1 layer invariant)
+
+**Wave structure** (for parallel execution):
+- **Wave 0** (devDep + config foundation, must finish before Wave 1): 04-01
+- **Wave 1** (constants + WidgetCard extension — parallel within wave; both depend only on Wave 0): 04-02, 04-03
+- **Wave 2** (per-widget rewires + globals.css + final gate — all four feed-widget plans are parallel; 04-08 depends on 03+04+05+06+07): 04-04, 04-05, 04-06, 04-07, 04-08
 
 **Out of scope (explicit, deferred to separate work):**
 - Fetcher changes (would degrade trending/velocity which consume full arrays).
@@ -165,7 +180,7 @@ Phase 1 → Phase 2 → Phase 3 → Phase 4. No decimals planned. Phase 2 import
 | 1. SCRUM-38 Implementation | 11/11 (retroactive) | **Complete with D8/D9 amendments** | 2026-05-13 (commits `e28ca7e` + `fa5c49f` + `dd9b6dd`) |
 | 2. Reddit Free Fallback | 1/1 (retroactive) | **Complete (retroactive import)** | 2026-05-13 (commits `66b04aa` + `b404c97`) |
 | 3. Caching & Refresh Hardening | 0/4 | **Planned** | — |
-| 4. Scrollable Feed Cards (SCRUM-49) | 0/TBD | **Roadmapped** | — |
+| 4. Scrollable Feed Cards (SCRUM-49) | 0/8 | **Planned** | — |
 
 ---
 

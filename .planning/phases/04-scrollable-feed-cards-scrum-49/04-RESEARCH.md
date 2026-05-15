@@ -664,7 +664,7 @@ describe("WidgetCard scrollable branch", () => {
 
 All version numbers, pragma syntax, peer-dependency requirements, and Tailwind variant support were verified against either the live npm registry (`npm view`), the live codebase (file reads), or authoritative documentation (vitest.dev, tailwindcss.com, testing-library.com, adrianroselli.com, dequeuniversity.com). No `[ASSUMED]` claims appear in the document above - everything is either `[VERIFIED]` against a tool result or `[CITED]` to an authoritative source.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 ### 1. Should `useScrollAtBottom` extract to `lib/hooks/use-scroll-at-bottom.ts`?
 
