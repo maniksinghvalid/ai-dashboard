@@ -37,8 +37,8 @@ describe("WidgetCard scrollable contract (D3/D4/D5/D8)", () => {
 
     const region = screen.getByRole("region");
     // tabIndex is exposed as "0" via getAttribute (React serializes the prop)
-    expect(region).toHaveAttribute("tabIndex", "0");
-    expect(region).toHaveAttribute("aria-label", "YouTube feed, scrollable");
+    expect(region.getAttribute("tabindex")).toBe("0");
+    expect(region.getAttribute("aria-label")).toBe("YouTube feed, scrollable");
     expect(region.getAttribute("role")).toBe("region");
   });
 
