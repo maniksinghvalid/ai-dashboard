@@ -42,9 +42,31 @@ export const TWITTER_USERS = [
 ] as const;
 
 export const RSS_FEEDS = [
+  // --- Your Original Feeds ---
   { name: "The Verge AI", url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml" },
   { name: "MIT Tech Review AI", url: "https://www.technologyreview.com/topic/artificial-intelligence/feed" },
   { name: "ArXiv cs.AI", url: "https://rss.arxiv.org/rss/cs.AI" },
+
+  // --- Latest & Favorite Additions (2026) ---
+  
+  // 1. Official AI Lab Insights (Primary Sources)
+  { name: "OpenAI Blog", url: "https://openai.com/news/rss.xml" },
+  { name: "Google DeepMind", url: "https://deepmind.google/blog/rss.xml" },
+  { name: "Anthropic News", url: "https://www.anthropic.com/news/rss.xml" },
+  
+  // 2. Open Source & Technical Implementation
+  { name: "Hugging Face Blog", url: "https://huggingface.co/blog/feed.xml" },
+  { name: "LlamaIndex Blog", url: "https://www.llamaindex.ai/blog/rss.xml" },
+  { name: "Machine Learning Mastery", url: "https://machinelearningmastery.com/feed/" },
+
+  // 3. Industry Analysis & Market Sentiment
+  { name: "VentureBeat AI", url: "https://venturebeat.com/category/ai/feed/" },
+  { name: "Wired AI", url: "https://www.wired.com/feed/tag/ai/latest/rss" },
+  { name: "Ars Technica AI", url: "https://arstechnica.com/ai/feed/" },
+
+  // 4. Developer & Ethics Focused
+  { name: "TLDR AI", url: "https://tldr.tech/ai/rss" },
+  { name: "AI Ethics Lab", url: "https://aiethicslab.com/feed/" }
 ] as const;
 
 export const CACHE_KEYS = {
