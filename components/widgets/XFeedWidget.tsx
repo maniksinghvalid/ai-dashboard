@@ -1,7 +1,9 @@
 import type { Tweet } from "@/lib/types";
-import { MAX_FEED_ITEMS } from "@/lib/constants";
+import { PAGE_SIZE } from "@/lib/constants";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { WidgetSkeleton } from "@/components/widgets/WidgetSkeleton";
+import { PaginationFooter } from "@/components/ui/PaginationFooter";
+import { usePagination } from "@/lib/hooks/usePagination";
 
 function formatCount(count: number): string {
   if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
@@ -79,6 +81,20 @@ export function XFeedWidget({
   isLoading: boolean;
   error: Error | null;
 }) {
+  const isPopulated =
+    Array.isArray(tweets) && tweets.length > 0 && !isLoading && !error;
+  const {
+    pageItems,
+    page,
+    totalPages,
+    hasPrev,
+    hasNext,
+    goPrev,
+    goNext,
+    rangeLabel,
+    showFooter,
+  } = usePagination(tweets ?? [], PAGE_SIZE, (t) => t.id);
+
   return (
     <WidgetCard
       icon={<span className="text-[11px] font-black text-platform-x">𝕏</span>}
@@ -86,8 +102,23 @@ export function XFeedWidget({
       title="X / Twitter"
       badge="Live feed"
       stale={stale}
-      scrollable={Array.isArray(tweets) && tweets.length > 0 && !isLoading && !error ? true : undefined}
-      maxBodyHeight={Array.isArray(tweets) && tweets.length > 0 && !isLoading && !error ? "max-h-[320px]" : undefined}
+      scrollable={isPopulated ? true : undefined}
+      maxBodyHeight={isPopulated ? "max-h-[320px]" : undefined}
+      paginationKey={isPopulated ? page : undefined}
+      footer={
+        isPopulated ? (
+          <PaginationFooter
+            page={page}
+            totalPages={totalPages}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
+            onPrev={goPrev}
+            onNext={goNext}
+            rangeLabel={rangeLabel}
+            hidden={!showFooter}
+          />
+        ) : undefined
+      }
     >
       {isLoading ? (
         <WidgetSkeleton lines={4} />
@@ -101,7 +132,7 @@ export function XFeedWidget({
         </p>
       ) : (
         <div>
-          {tweets.slice(0, MAX_FEED_ITEMS).map((tweet, i) => (
+          {pageItems.map((tweet, i) => (
             <TweetCard key={tweet.id} tweet={tweet} index={i} />
           ))}
         </div>
